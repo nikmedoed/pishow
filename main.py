@@ -1,78 +1,53 @@
-from fastapi import FastAPI, HTTPException
+from contextlib import asynccontextmanager
+from pathlib import Path
+
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from fastapi.requests import Request
-from pathlib import Path
-from urllib.parse import quote
-import random
-import ffmpeg
+
+from media import MediaHandler
+
+MEDIA_DIR = Path(r"Y:/gallery")
+media_handler = MediaHandler(MEDIA_DIR)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    if not media_handler.media_files:
+        media_handler.reset()
+    yield
+
 
 app = FastAPI()
-
-# Конфигурация
-MEDIA_DIR = Path("Y:/gallery")
-SUPPORTED_IMAGES = (".jpg", ".jpeg", ".png")
-SUPPORTED_VIDEOS = (".mp4",)
-MEDIA_FILES = []
-CURRENT_INDEX = 0
-
-# Шаблоны
-templates = Jinja2Templates(directory="templates")
-
-# Статические файлы
 app.mount("/media", StaticFiles(directory=str(MEDIA_DIR)), name="media")
-
-
-# Инициализация медиафайлов
-def initialize_media():
-    global MEDIA_FILES
-    files = [
-        quote(str(file.relative_to(MEDIA_DIR)).replace("\\", "/"))  # Корректная кодировка
-        for file in MEDIA_DIR.rglob("*")
-        if file.suffix.lower() in SUPPORTED_IMAGES + SUPPORTED_VIDEOS
-    ]
-    random.shuffle(files)
-    MEDIA_FILES = files
-
-
-@app.on_event("startup")
-async def startup_event():
-    initialize_media()
-
-
-def get_video_duration(file_path: Path) -> int:
-    try:
-        probe = ffmpeg.probe(str(file_path))
-        duration = float(probe['format']['duration'])
-        return int(duration)
-    except Exception:
-        return 0
+templates = Jinja2Templates(directory="templates")
 
 
 @app.get("/", response_class=HTMLResponse)
-async def get_media_page(request: Request):
-    global CURRENT_INDEX
-    if not MEDIA_FILES:
+async def get_media_page(request: Request, refresh: bool = True):
+    try:
+        media = media_handler.next() if refresh else media_handler.get_current()
+        refresh_time = media.duration + 3 if media.is_video else 15
+        return templates.TemplateResponse(
+            "index.html",
+            {
+                "request": request,
+                "file_url": f"/media/{media.relative_path}",
+                "refresh_time": refresh and refresh_time,
+                "is_video": media.is_video,
+            },
+        )
+    except ValueError:
         raise HTTPException(status_code=404, detail="No media files found.")
 
-    file = MEDIA_FILES[CURRENT_INDEX]
-    CURRENT_INDEX = (CURRENT_INDEX + 1) % len(MEDIA_FILES)
 
-    file_path = MEDIA_DIR / file
-    if file_path.suffix.lower() in SUPPORTED_VIDEOS:
-        refresh_time = get_video_duration(file_path) + 4
-        is_video = True
-    else:
-        refresh_time = 7
-        is_video = False
+@app.post("/pause")
+async def pause():
+    return {"redirect_url": "/?refresh=false"}
 
-    return templates.TemplateResponse(
-        "index.html",
-        {
-            "request": request,
-            "file_url": f"/media/{file}",
-            "refresh_time": refresh_time,
-            "is_video": is_video
-        }
-    )
+
+@app.post("/next")
+async def next_file():
+    media_handler.next()
+    return {"redirect_url": "/"}
