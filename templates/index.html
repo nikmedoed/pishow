@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Слайдшоу</title>
+    <style>
+        body { margin: 0; background: black; color: white; display: flex; align-items: center; justify-content: center; height: 100vh; overflow: hidden; }
+        img, video { max-width: 100%; max-height: 100%; }
+        .controls { position: absolute; bottom: 20px; left: 20px; display: flex; gap: 10px; }
+    </style>
+</head>
+<body>
+    <div id="container"></div>
+    <div class="controls">
+        <button onclick="prev()">Назад</button>
+        <button onclick="pause()">Пауза</button>
+        <button onclick="resume()">Продолжить</button>
+        <button onclick="next()">Далее</button>
+    </div>
+    <script>
+        let timer;
+
+        async function fetchFile(endpoint) {
+            const response = await fetch(endpoint);
+            const data = await response.json();
+            if (data.status === "paused") {
+                return;
+            }
+            const container = document.getElementById('container');
+            container.innerHTML = "";
+            const fileUrl = data.file_url;
+            if (data.is_video) {
+                const video = document.createElement('video');
+                video.src = fileUrl;
+                video.autoplay = true;
+                video.controls = false;
+                video.onended = () => fetchFile('/next');
+                container.appendChild(video);
+            } else {
+                const img = document.createElement('img');
+                img.src = fileUrl;
+                container.appendChild(img);
+                timer = setTimeout(() => fetchFile('/next'), 5000);
+            }
+        }
+
+        async function next() {
+            clearTimeout(timer);
+            fetchFile('/next');
+        }
+
+        async function prev() {
+            clearTimeout(timer);
+            fetchFile('/prev');
+        }
+
+        async function pause() {
+            clearTimeout(timer);
+            await fetch('/pause', { method: 'POST' });
+        }
+
+        async function resume() {
+            await fetch('/resume', { method: 'POST' });
+            fetchFile('/next');
+        }
+
+        fetchFile('/next');
+    </script>
+</body>
+</html>
