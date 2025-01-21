@@ -1,10 +1,12 @@
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.requests import Request
-from fastapi.staticfiles import StaticFiles
 from pathlib import Path
+from urllib.parse import quote
 import random
+import ffmpeg
 
 app = FastAPI()
 
@@ -14,20 +16,19 @@ SUPPORTED_IMAGES = (".jpg", ".jpeg", ".png")
 SUPPORTED_VIDEOS = (".mp4",)
 MEDIA_FILES = []
 CURRENT_INDEX = 0
-IS_PAUSED = False
 
 # Шаблоны
 templates = Jinja2Templates(directory="templates")
 
-# Раздача статики
-app.mount("/media", StaticFiles(directory=MEDIA_DIR), name="media")
+# Статические файлы
+app.mount("/media", StaticFiles(directory=str(MEDIA_DIR)), name="media")
 
 
-# Функция инициализации
+# Инициализация медиафайлов
 def initialize_media():
     global MEDIA_FILES
     files = [
-        str(file.relative_to(MEDIA_DIR))  # Сохраняем относительный путь
+        quote(str(file.relative_to(MEDIA_DIR)).replace("\\", "/"))  # Корректная кодировка
         for file in MEDIA_DIR.rglob("*")
         if file.suffix.lower() in SUPPORTED_IMAGES + SUPPORTED_VIDEOS
     ]
@@ -35,65 +36,43 @@ def initialize_media():
     MEDIA_FILES = files
 
 
-# Инициализация при запуске
 @app.on_event("startup")
 async def startup_event():
     initialize_media()
 
 
-# Главная страница (рендер из шаблона)
-@app.get("/")
-async def get_slideshow_page(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
+def get_video_duration(file_path: Path) -> int:
+    try:
+        probe = ffmpeg.probe(str(file_path))
+        duration = float(probe['format']['duration'])
+        return int(duration)
+    except Exception:
+        return 0
 
 
-# Получить следующий файл
-@app.get("/next")
-async def next_file():
-    global CURRENT_INDEX, IS_PAUSED
-    if IS_PAUSED:
-        return {"status": "paused", "message": "Playback is paused."}
-    if not MEDIA_FILES:
-        raise HTTPException(status_code=404, detail="No media files found.")
-
-    CURRENT_INDEX = (CURRENT_INDEX + 1) % len(MEDIA_FILES)
-    file = MEDIA_FILES[CURRENT_INDEX]
-    return {"file_url": f"/media/{file}", "is_video": file.endswith(SUPPORTED_VIDEOS)}
-
-
-# Получить предыдущий файл
-@app.get("/prev")
-async def prev_file():
-    global CURRENT_INDEX, IS_PAUSED
-    if IS_PAUSED:
-        return {"status": "paused", "message": "Playback is paused."}
-    if not MEDIA_FILES:
-        raise HTTPException(status_code=404, detail="No media files found.")
-
-    CURRENT_INDEX = (CURRENT_INDEX - 1) % len(MEDIA_FILES)
-    file = MEDIA_FILES[CURRENT_INDEX]
-    return {"file_url": f"/media/{file}", "is_video": file.endswith(SUPPORTED_VIDEOS)}
-
-
-# Пауза воспроизведения
-@app.post("/pause")
-async def pause():
-    global IS_PAUSED
-    IS_PAUSED = True
-    return {"status": "paused"}
-
-
-# Возобновление воспроизведения
-@app.post("/resume")
-async def resume():
-    global IS_PAUSED
-    IS_PAUSED = False
-    return {"status": "playing"}
-
-
-# Сброс прогресса
-@app.post("/reset")
-async def reset():
+@app.get("/", response_class=HTMLResponse)
+async def get_media_page(request: Request):
     global CURRENT_INDEX
-    CURRENT_INDEX = 0
-    return {"status": "reset", "current_index": CURRENT_INDEX}
+    if not MEDIA_FILES:
+        raise HTTPException(status_code=404, detail="No media files found.")
+
+    file = MEDIA_FILES[CURRENT_INDEX]
+    CURRENT_INDEX = (CURRENT_INDEX + 1) % len(MEDIA_FILES)
+
+    file_path = MEDIA_DIR / file
+    if file_path.suffix.lower() in SUPPORTED_VIDEOS:
+        refresh_time = get_video_duration(file_path) + 4
+        is_video = True
+    else:
+        refresh_time = 7
+        is_video = False
+
+    return templates.TemplateResponse(
+        "index.html",
+        {
+            "request": request,
+            "file_url": f"/media/{file}",
+            "refresh_time": refresh_time,
+            "is_video": is_video
+        }
+    )
