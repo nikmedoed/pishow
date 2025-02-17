@@ -180,4 +180,4 @@ dist-ssr
 *.sln
 *.sw?
 frontend/index.html
-/frontend/frames
+/gallery

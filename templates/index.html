@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -20,18 +20,26 @@
             font-family: sans-serif;
         }
 
+        /* Фон через div с background-image */
         #background {
             position: absolute;
+            top: 0;
+            left: 0;
             width: 100%;
             height: 100%;
-            object-fit: cover;
+            background: url("{{ file_url }}") no-repeat center center;
+            background-size: cover;
+            /* Использование префиксов для поддержки старых WebKit-браузеров */
+            -webkit-filter: blur(20px) brightness(0.75);
             filter: blur(20px) brightness(0.75);
             z-index: -1;
         }
 
+        /* Основной медиа-элемент */
         #main-media {
             max-width: 100%;
             max-height: 100%;
+            z-index: 1;
         }
 
         .controls {
@@ -39,6 +47,7 @@
             top: 5px;
             left: 5px;
             display: flex;
+            z-index: 2;
         }
 
         .controls a {
@@ -48,20 +57,21 @@
             color: rgba(255, 255, 255, 0.2);
             text-decoration: none;
             border-radius: 5px;
-            transition: all 0.3s ease;
+            /* Если браузер не поддерживает transitions, можно убрать эту строку */
+            /* transition: all 0.3s ease; */
         }
 
         .controls a:hover {
             background: rgba(85, 85, 85, 0.7);
             color: rgba(255, 255, 255, 1);
         }
-
     </style>
 </head>
 <body>
-<img id="background" src="{{ file_url }}" alt="Background">
+<div id="background"></div>
 {% if is_video %}
-<video id="main-media" src="{{ file_url }}" autoplay controls></video>
+<!-- Добавлен muted для автозапуска видео. Если video не поддерживается, можно рассмотреть альтернативу через embed или object -->
+<video id="main-media" src="{{ file_url }}" autoplay muted controls></video>
 {% else %}
 <img id="main-media" src="{{ file_url }}" alt="Main">
 {% endif %}

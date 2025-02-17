@@ -7,8 +7,14 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from media import MediaHandler
+import logging
 
-MEDIA_DIR = Path(r"Y:/gallery")
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+)
+
+MEDIA_DIR = Path(r"gallery")
 media_handler = MediaHandler(MEDIA_DIR)
 
 
