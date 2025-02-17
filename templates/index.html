@@ -20,7 +20,6 @@
             font-family: sans-serif;
         }
 
-        /* Фон через div с background-image */
         #background {
             position: absolute;
             top: 0;
@@ -35,10 +34,14 @@
             z-index: -1;
         }
 
-        /* Основной медиа-элемент */
         #main-media {
-            max-width: 100%;
-            max-height: 100%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 100vw;
+            height: 100vh;
+            object-fit: cover;
+            transform: translate(-50%, -50%);
             z-index: 1;
         }
 
@@ -57,8 +60,6 @@
             color: rgba(255, 255, 255, 0.2);
             text-decoration: none;
             border-radius: 5px;
-            /* Если браузер не поддерживает transitions, можно убрать эту строку */
-            /* transition: all 0.3s ease; */
         }
 
         .controls a:hover {
@@ -68,11 +69,10 @@
     </style>
 </head>
 <body>
-<div id="background"></div>
 {% if is_video %}
-<!-- Добавлен muted для автозапуска видео. Если video не поддерживается, можно рассмотреть альтернативу через embed или object -->
 <video id="main-media" src="{{ file_url }}" autoplay muted controls></video>
 {% else %}
+<div id="background"></div>
 <img id="main-media" src="{{ file_url }}" alt="Main">
 {% endif %}
 <div class="controls">
