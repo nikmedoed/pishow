@@ -10,10 +10,22 @@
     <style>
         body {
             margin: 0;
-            background: black;
-            color: white;
+            background: #000;
+            color: #fff;
+            display: -webkit-box;
+            display: -moz-box;
+            display: -ms-flexbox;
+            display: -webkit-flex;
             display: flex;
+            -webkit-box-align: center;
+            -moz-box-align: center;
+            -ms-flex-align: center;
+            -webkit-align-items: center;
             align-items: center;
+            -webkit-box-pack: center;
+            -moz-box-pack: center;
+            -ms-flex-pack: center;
+            -webkit-justify-content: center;
             justify-content: center;
             height: 100vh;
             overflow: hidden;
@@ -28,20 +40,27 @@
             height: 100%;
             background: url("{{ file_url }}") no-repeat center center;
             background-size: cover;
-            /* Использование префиксов для поддержки старых WebKit-браузеров */
+            /* Префикс для фильтров в старых WebKit-браузерах */
             -webkit-filter: blur(20px) brightness(0.75);
             filter: blur(20px) brightness(0.75);
             z-index: -1;
         }
 
-        #main-media {
+        #main-video {
             position: absolute;
             top: 50%;
             left: 50%;
             width: 100vw;
             height: 100vh;
             object-fit: cover;
+            -webkit-transform: translate(-50%, -50%);
             transform: translate(-50%, -50%);
+            z-index: 1;
+        }
+
+        #main-media {
+            max-width: 100%;
+            max-height: 100%;
             z-index: 1;
         }
 
@@ -49,6 +68,11 @@
             position: absolute;
             top: 5px;
             left: 5px;
+            /* Flex-контейнер с префиксами */
+            display: -webkit-box;
+            display: -moz-box;
+            display: -ms-flexbox;
+            display: -webkit-flex;
             display: flex;
             z-index: 2;
         }
@@ -59,6 +83,7 @@
             background: rgba(51, 51, 51, 0.1);
             color: rgba(255, 255, 255, 0.2);
             text-decoration: none;
+            -webkit-border-radius: 5px;
             border-radius: 5px;
         }
 
@@ -70,7 +95,7 @@
 </head>
 <body>
 {% if is_video %}
-<video id="main-media" src="{{ file_url }}" autoplay muted controls></video>
+<video id="main-video" src="{{ file_url }}" autoplay muted controls></video>
 {% else %}
 <div id="background"></div>
 <img id="main-media" src="{{ file_url }}" alt="Main">
