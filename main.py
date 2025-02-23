@@ -1,20 +1,24 @@
+import logging
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
+from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from media import MediaHandler
-import logging
 
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s",
 )
 
-MEDIA_DIR = Path(r"gallery")
+load_dotenv()
+
+MEDIA_DIR = Path(os.getenv("MEDIA_DIR", "gallery"))
 media_handler = MediaHandler(MEDIA_DIR)
 
 
@@ -25,7 +29,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI()
+app = FastAPI(lifespan=lifespan)
 app.mount("/media", StaticFiles(directory=str(MEDIA_DIR)), name="media")
 templates = Jinja2Templates(directory="templates")
 
