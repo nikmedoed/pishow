@@ -6,11 +6,13 @@ from urllib.parse import quote
 
 from pymediainfo import MediaInfo
 
+
 @dataclass
 class MediaFile:
     relative_path: str
     is_video: bool = False
     duration: int = None
+
 
 def get_video_duration(file_path: Path) -> int:
     """Return video duration in seconds."""
@@ -23,24 +25,28 @@ def get_video_duration(file_path: Path) -> int:
         print(f"Error fetching video duration for {file_path}: {e}")
     return 0
 
+
 def compute_key_and_url(file: Path, media_dir: Path):
-    """Compute a unique key (MD5 of the relative path) and URL for the file."""
+    """Compute unique key and URL for the file."""
     rel_path = str(file.relative_to(media_dir)).replace("\\", "/")
     key = hashlib.md5(rel_path.encode("utf-8")).hexdigest()
     url = quote(rel_path)
     return key, url
 
+
 class MediaDict(dict):
     def __init__(self, media_dir: Path, *args, **kwargs):
+        """
+        Initialize the MediaDict.
+        :param media_dir: Directory containing media files.
+        """
         super().__init__(*args, **kwargs)
         self.media_dir = media_dir
         self.sync_files()
 
     def sync_files(self):
         """
-        Incrementally synchronize the dictionary with the files in the directory:
-          - Add new image/video files.
-          - Remove keys for files that no longer exist.
+        Synchronize media files from the directory.
         Returns a list of new keys.
         """
         new_keys = []
@@ -68,7 +74,6 @@ class MediaDict(dict):
         return new_keys
 
     def __getitem__(self, key):
-        # Override to check if the file exists on disk
         item = super().__getitem__(key)
         if item is None or not item.relative_path:
             return None
@@ -78,8 +83,8 @@ class MediaDict(dict):
             return None
         return item
 
+
 if __name__ == '__main__':
-    # For testing purposes: define the media directory
     media_dir = Path("../../gallery")
     media_dict = MediaDict(media_dir)
 
