@@ -181,3 +181,4 @@ dist-ssr
 *.sw?
 frontend/index.html
 /gallery
+*.pkl
