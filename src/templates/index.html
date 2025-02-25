@@ -95,7 +95,7 @@
 </head>
 <body>
 {% if is_video %}
-<video id="main-video" src="{{ file_url }}" autoplay muted controls></video>
+<video id="main-video" src="{{ file_url }}" controls muted loop autoplay></video>
 {% else %}
 <div id="background"></div>
 <img id="main-media" src="{{ file_url }}" alt="Main">
