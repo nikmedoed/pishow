@@ -40,7 +40,7 @@ async def get_media_page(request: Request, device_id: str = Cookie(None)):
     refresh_time = media.duration + 3 if media.is_video else 15
 
     response = templates.TemplateResponse(
-        "index.html",
+        "index.jinja2",
         {
             "request": request,
             "file_url": f"/media/{media.relative_path}",
