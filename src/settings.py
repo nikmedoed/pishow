@@ -13,4 +13,5 @@ MEDIA_DIR = Path(os.getenv("MEDIA_DIR", "gallery"))
 media_handler = MediaDict(MEDIA_DIR)
 device_queue_manager = DeviceQueueManager(media_handler)
 
-templates = Jinja2Templates(directory="src/templates")
+TEMPLATES_DIR = Path(__file__).parent / "templates"
+templates = Jinja2Templates(directory=TEMPLATES_DIR)
