@@ -79,5 +79,5 @@ class DeviceQueue:
             media = self.media_dict.get(key)
             if media is not None:
                 self.save_queue()
-                logger.debug(f"Next ok :: did {self.device_id} :: {len(self.queue)} / {len(self.media_dict)}")
+                logger.debug(f"Next ok :: did {self.device_id} :: {len(self.queue)} / {len(self.media_dict)} :: {media}")
                 return media
