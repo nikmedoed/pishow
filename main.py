@@ -4,7 +4,7 @@ import os
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
-from routes.old import router as old
+from src.routes.old import router as old
 from src.settings import MEDIA_DIR
 
 logging.basicConfig(
