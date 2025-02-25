@@ -1,66 +1,89 @@
-# Pishow - A simple slideshow with extensive device coverage
+# Pishow – A Minimal Slideshow for Legacy Devices
 
-Pishow is a minimal slideshow solution designed to run on old devices, including outdated smart TVs and tablets. It generates a simple HTML page that cycles through images and videos stored on your network. Unlike modern solutions, Pishow does not rely on JavaScript, making it ideal for browsers with limited or no scripting support.
+Pishow is a lightweight slideshow solution designed specifically for older devices—including outdated smart TVs and
+tablets. It generates a simple HTML page that continuously cycles through images and videos stored on your network. By
+avoiding JavaScript and using only HTML (via meta refresh), Pishow is perfect for browsers with limited or no scripting
+support.
 
-## ✨ Features
+---
 
-- **Works on outdated devices** — Designed for old TVs, smart displays, and legacy browsers that don't support JavaScript.
-- **No heavy scripts** — The slideshow refreshes using HTML meta refresh, ensuring compatibility with restricted browsers.
-- **Random looping playback** — Displays images and videos in a shuffled sequence.
-- **Lightweight & stable** — Runs for hours without memory leaks or performance degradation.
-- **Supports network storage** — Load media directly from your NAS or a shared drive.
+## Features
 
-## 🎥 Supported Formats
+- **Multi-Device Operation:** Run the slideshow simultaneously on multiple devices. Each device maintains its own media
+  queue and state, allowing seamless resumption.
+- **Persistent State & Queue Management:** Automatically saves the current state for each device and updates the media
+  file list as files are added, removed, or changed.
+- **Device Identification:** Uses a unique identifier (based on user-agent and IP) to store device-specific information.
+- **Flexible Media Support:** Supports any file type that the target device can handle. (Note: Video duration may not be
+  detected correctly for non-standard formats; converting media is recommended.)
 
-Supported formats depend on the browser and device. By default, the following are recognized:
+---
+
+## Supported Formats & Media Recommendations
+
+*Compatibility depends on the target device’s codecs and supported formats. By default:*
+
 - **Images:** `.jpg`, `.jpeg`, `.png`
 - **Videos:** `.mp4`, `.mov`
-- Depends on the codecs and formats supported on the target device
 
-💡 **Codec note:** While `.mp4` is supported, some older devices may fail to play videos encoded with H.264 Level 5 or above.
+> **Note:** Some video containers might not report duration correctly.
 
-## 🛠 Tested Devices
+---
 
-| Device | OS/Browser | Notes |
-|--------|-----------|-------|
-| **LG Smart TV (webOS 3.0)** | Mozilla/5.0 (Linux; NetCast) AppleWebKit/537.31 Chrome/38.0 | Worked for 2+ hours without issues. Failed with H.264 Level 5 and ultra-high-resolution panoramas. |
-| **iPad 2 (16GB)** | Safari | Stable playback. |
+## Tested Devices
 
-## 📦 Preparing Your Media
+| Device                      | OS/Browser                                                  | Notes                                                                                                       |
+|-----------------------------|-------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------|
+| **LG Smart TV (webOS 3.0)** | Mozilla/5.0 (Linux; NetCast) AppleWebKit/537.31 Chrome/38.0 | Runs continuously for over 2 hours. May have issues with H.264 Level 5 and ultra-high-resolution panoramas. |
+| **iPad 2 (16GB)**           | Safari                                                      | Stable playback.                                                                                            |
 
-For optimal performance:
-- **Compress videos**: [Rotato Video Compressor](https://tools.rotato.app/compress)
-- **Resize images**: Match your display resolution, set JPEG quality to 60-70%, and remove metadata.
+---
 
-## 🚀 Installation & Deployment
+## Preparing Your Media
 
-### 1️⃣ **Clone the Repository**
+To ensure optimal performance:
+
+- **Compress Videos:** Use [Rotato Video Compressor](https://tools.rotato.app/compress).
+- **Resize Images:** Adjust images to match your display resolution, set JPEG quality to 60–70%, and remove unnecessary
+  metadata.
+
+---
+
+## Installation & Deployment
+
+### 1. Clone the Repository
+
 ```sh
 git clone https://github.com/nikmedoed/pishow.git
 cd pishow
 ```
 
-### 2️⃣ **Set Up Dependencies**
+### 2. Set Up Dependencies
+
 ```sh
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 3️⃣ **Configure Media Directory**
-Edit `.env` and set the path to your media folder:
+### 3. Configure the Media Directory
+
+Edit the `.env` file to specify the path to your media folder:
+
 ```ini
-MEDIA_DIR=/path/to/gallery
+MEDIA_DIR = /path/to/gallery
 ```
 
-### 4️⃣ **Run the Application**
+### 4. Run the Application
+
 ```sh
 python run.py
 ```
 
-By default, the server runs on `http://0.0.0.0:8000`. Open this in your browser on your device.
+By default, the server runs on `http://0.0.0.0:8000`. Open this URL in your browser on your device.
 
-### 5️⃣ **Deploy as a Systemd Service**
+### 5. Deploy as a Systemd Service
+
 To run Pishow automatically on startup:
 
 1. Create a systemd service file:
@@ -92,15 +115,23 @@ To run Pishow automatically on startup:
    sudo systemctl start pishow.service
    ```
 
-## 🎯 Why This Project?
+---
 
-Many existing slideshow solutions rely on JavaScript, making them incompatible with older devices. Pishow takes a different approach:
-- **No scripts** — Just pure HTML and meta refresh.
-- **Minimalist approach** — A straightforward media viewer without unnecessary overhead.
-- **Optimized for low-power devices** — Runs on low-end hardware without lag.
+## Why Pishow?
+
+Many modern slideshow solutions depend on JavaScript, making them incompatible with older devices. Pishow offers a
+unique approach by using:
+
+- **No Scripts:** Pure HTML with meta refresh.
+- **Minimalist Design:** A straightforward, efficient media viewer without unnecessary overhead.
+- **Low-Power Optimization:** Designed to run smoothly on low-end hardware.
+- **Persistent State & Queues:** Each device resumes exactly where it left off with its own media queue.
 
 ---
 
-📢 **Feedback & Contributions**
-If you find this project useful or have suggestions, feel free to open an issue or contribute! 🚀
-```
+**Feedback & Contributions:**  
+If you find Pishow useful or have suggestions for improvement, please open an issue or submit a pull request.
+
+---
+
+*This README was generated by AI—please report any inaccuracies or mistakes.*
