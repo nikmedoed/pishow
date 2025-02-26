@@ -6,86 +6,8 @@
     {% if refresh_time %}
         <meta http-equiv="refresh" content="{{ refresh_time }}">
     {% endif %}
-    <title>Слайдшоу</title>
-    <style>
-        body {
-            margin: 0;
-            background: #000;
-            color: #fff;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-            overflow: hidden;
-            font-family: sans-serif;
-        }
-
-        #background {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: url("{{ file_url }}") center center / cover no-repeat;
-            -webkit-filter: blur(20px) brightness(0.75);
-            filter: blur(20px) brightness(0.75);
-            z-index: -1;
-        }
-
-        #main-video {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            width: 100vw;
-            height: 100vh;
-            object-fit: contain;
-            transform: translate(-50%, -50%);
-            z-index: 1;
-        }
-
-        {% if dynamic_background %}
-            #background-video {
-                position: absolute;
-                top: 50%;
-                left: 50%;
-                width: 100vw;
-                height: 100vh;
-                object-fit: cover;
-                -webkit-filter: blur(20px) brightness(0.75);
-                filter: blur(20px) brightness(0.75);
-                transform: translate(-50%, -50%);
-                z-index: -1;
-            }
-        {% endif %}
-
-        #main-media {
-            max-width: 100%;
-            max-height: 100%;
-            z-index: 1;
-        }
-
-        .controls {
-            position: absolute;
-            top: 5px;
-            left: 5px;
-            display: flex;
-            z-index: 2;
-        }
-
-        .controls a {
-            margin-right: 5px;
-            padding: 5px 10px;
-            background: rgba(51, 51, 51, 0.1);
-            color: rgba(255, 255, 255, 0.2);
-            text-decoration: none;
-            border-radius: 5px;
-        }
-
-        .controls a:hover {
-            background: rgba(85, 85, 85, 0.7);
-            color: rgba(255, 255, 255, 1);
-        }
-    </style>
+    <title>Slideshow</title>
+    <link href="/static/old.css" rel="stylesheet"/>
 </head>
 <body>
 {% if is_video %}
@@ -97,9 +19,10 @@
     {% endif %}
     <video id="main-video" src="{{ file_url }}" controls muted loop autoplay playsinline webkit-playsinline></video>
 {% else %}
-    <div id="background"></div>
+    <div id="background" style="background: url('{{ file_url }}') center center / cover no-repeat;"></div>
     <img id="main-media" src="{{ file_url }}" alt="Main">
 {% endif %}
+
 <div class="controls">
     <a href="/?refresh=false">Pause</a>
     <a href="/">Next</a>

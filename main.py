@@ -14,4 +14,5 @@ logging.basicConfig(
 
 app = FastAPI()
 app.mount(MEDIA_PATH, StaticFiles(directory=str(MEDIA_DIR)), name="media")
+app.mount("/static", StaticFiles(directory="src/static"), name="static")
 app.include_router(old)
