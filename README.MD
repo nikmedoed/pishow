@@ -51,6 +51,8 @@ To ensure optimal performance:
 
 ## Installation & Deployment
 
+You should have ffmpeg in system for static video background.
+
 ### 1. Clone the Repository
 
 ```sh

@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
 from src.routes.old import router as old
-from src.settings import MEDIA_DIR
+from src.settings import MEDIA_DIR, MEDIA_PATH
 
 logging.basicConfig(
     level=logging.DEBUG if os.getenv("DEBUG", False) else logging.INFO,
@@ -13,5 +13,5 @@ logging.basicConfig(
 )
 
 app = FastAPI()
-app.mount("/media", StaticFiles(directory=str(MEDIA_DIR)), name="media")
+app.mount(MEDIA_PATH, StaticFiles(directory=str(MEDIA_DIR)), name="media")
 app.include_router(old)

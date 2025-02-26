@@ -1,5 +1,6 @@
 import hashlib
 import mimetypes
+import random
 from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import quote
@@ -35,16 +36,16 @@ def compute_key_and_url(file: Path, media_dir: Path):
 
 
 class MediaDict(dict):
-    def __init__(self, media_dir: Path, *args, **kwargs):
+    def __init__(self, media_dir: Path, background_suffix: str = None, *args, **kwargs):
         """
         Initialize the MediaDict.
         :param media_dir: Directory containing media files.
         """
         super().__init__(*args, **kwargs)
         self.media_dir = media_dir
-        self.sync_files()
+        self.sync_files(background_suffix)
 
-    def sync_files(self):
+    def sync_files(self, background_suffix=None):
         """
         Synchronize media files from the directory.
         Returns a list of new keys.
@@ -53,6 +54,8 @@ class MediaDict(dict):
         found_keys = set()
 
         for file in self.media_dir.rglob("*"):
+            if background_suffix is not None and str(file).endswith(background_suffix):
+                continue
             mime_type, _ = mimetypes.guess_type(file)
             if not (mime_type and (mime_type.startswith("image/") or mime_type.startswith("video/"))):
                 continue
@@ -82,6 +85,15 @@ class MediaDict(dict):
             self.sync_files()
             return None
         return item
+
+    def get_random_photo_background(self):
+        values = list(self.values())
+        for _ in range(5):
+            if not values:
+                break
+            item = random.choice(values)
+            if not item.is_video:
+                return item.relative_path
 
 
 if __name__ == '__main__':

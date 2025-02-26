@@ -1,27 +1,12 @@
 import logging
-import uuid
 
 from fastapi import APIRouter, Request, Cookie
 from fastapi.responses import HTMLResponse
 
-from src.settings import device_queue_manager, templates
+from src.settings import device_queue_manager, templates, MEDIA_PATH
+from src.utils import get_device_id, get_static_background_path
 
 router = APIRouter()
-
-
-def get_device_id(request: Request, cookie_device_id: str) -> str:
-    if cookie_device_id:
-        return cookie_device_id
-    user_agent = request.headers.get("user-agent", "unknown")
-    client_ip = getattr(request.client, "host", "unknown")
-    new_device_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, user_agent + client_ip))
-    device_info = {
-        "raw_user_agent": user_agent,
-        "client_ip": client_ip,
-    }
-    device_queue_manager.update_device_info(new_device_id, device_info)
-    logging.debug(f"New device registered: {new_device_id}, UA: {user_agent}, IP: {client_ip}")
-    return new_device_id
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -39,14 +24,22 @@ async def get_media_page(request: Request, device_id: str = Cookie(None)):
 
     refresh_time = media.duration + 3 if media.is_video else 15
 
+    dynamic_background = False
+
+    content = f"{MEDIA_PATH}/{media.relative_path}"
+    background_file_url = content
+    if media.is_video and not dynamic_background:
+        background_file_url = get_static_background_path(media.relative_path)
+
     response = templates.TemplateResponse(
         "index.jinja2",
         {
             "request": request,
-            "file_url": f"/media/{media.relative_path}",
+            "file_url": content,
             "refresh_time": refresh_time,
             "is_video": media.is_video,
-            "dynamicBackground": True
+            "dynamic_background": dynamic_background,
+            "background_file_url": background_file_url,
         },
     )
     response.set_cookie(key="device_id", value=device_id, max_age=31536000, path="/", httponly=True)
