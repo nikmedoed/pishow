@@ -85,7 +85,7 @@ def get_static_background_path(relative_path: str) -> str:
     background_file_path = os.path.join(MEDIA_DIR, background_filename)
 
     if not os.path.exists(background_file_path):
-        if shutil.which("ffdmpeg"):
+        if shutil.which("ffmpeg"):
             cmd = f'ffmpeg -y -i "{input_path}" -ss 00:00:01.000 -vframes 1 "{background_file_path}"'
             os.system(cmd)
             logging.info(f"Generated background frame: {background_file_path}")
