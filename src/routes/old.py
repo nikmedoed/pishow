@@ -22,8 +22,17 @@ def is_outdated_ios(user_agent: str) -> bool:
 @router.get("/", response_class=HTMLResponse)
 async def get_media_page(request: Request, device_id: str = Cookie(None)):
     device_id = get_device_id(request, device_id)
+
+    dynamic_background = False
+    counters = True
+
     try:
-        media = device_queue_manager.get_next(device_id)
+        if counters:
+            media, position, total = device_queue_manager.get_next(device_id, counters=True)
+            counters_text = f"{position} / {total}"
+        else:
+            media = device_queue_manager.get_next(device_id)
+            counters_text = None
     except Exception as e:
         logging.error(f"Error retrieving media for device {device_id}: {e}")
         return HTMLResponse("Error: no media available", status_code=500)
@@ -33,8 +42,6 @@ async def get_media_page(request: Request, device_id: str = Cookie(None)):
         return HTMLResponse("No media available", status_code=404)
 
     refresh_time = media.duration + 3 if media.is_video else 15
-
-    dynamic_background = False
 
     content = f"{MEDIA_PATH}/{media.relative_path}"
     background_file_url = content
@@ -52,6 +59,7 @@ async def get_media_page(request: Request, device_id: str = Cookie(None)):
             "dynamic_background": dynamic_background,
             "background_file_url": background_file_url,
             "include_inline_video": include_inline_video,
+            "counters_text": counters_text,
         },
     )
     response.set_cookie(key="device_id", value=device_id, max_age=31536000, path="/", httponly=True)

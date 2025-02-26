@@ -64,6 +64,9 @@ class DeviceQueue:
         self.save_queue()
         logger.debug(f"Queue updated for device {self.device_id}: {len(self.queue)} items.")
 
+    def get_next_counters(self):
+        return self.get_next(), len(self.media_dict) - len(self.queue), len(self.media_dict)
+
     def get_next(self):
         """
         Retrieve the next valid media file from the queue.
@@ -79,5 +82,6 @@ class DeviceQueue:
             media = self.media_dict.get(key)
             if media is not None:
                 self.save_queue()
-                logger.debug(f"Next ok :: did {self.device_id} :: {len(self.queue)} / {len(self.media_dict)} :: {media}")
+                logger.debug(
+                    f"Next ok :: did {self.device_id} :: {len(self.queue)} / {len(self.media_dict)} :: {media}")
                 return media

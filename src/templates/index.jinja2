@@ -27,6 +27,9 @@
     <a href="/?refresh=false">Pause</a>
     <a href="/">Next</a>
 </div>
+{% if counters_text %}
+    <div class="counters">{{ counters_text }}</div>
+{% endif %}
 
 {% if include_inline_video %}
     <script src="/static/iphone-inline-video.min.js"></script>

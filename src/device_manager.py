@@ -46,9 +46,9 @@ class DeviceQueueManager:
             self.device_queues[device_id] = dq
         return self.device_queues[device_id]
 
-    def get_next(self, device_id: str):
+    def get_next(self, device_id: str, counters=False):
         dq = self.get_item(device_id)
-        media = dq.get_next()
+        media = dq.get_next_counters() if counters else dq.get_next()
         if media is None:
             raise ValueError("No media found for device.")
         return media
