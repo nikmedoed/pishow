@@ -47,6 +47,11 @@ To ensure optimal performance:
 - **Resize Images:** Adjust images to match your display resolution, set JPEG quality to 60–70%, and remove unnecessary
   metadata.
 
+If you're having trouble with rotated videos, such as those recorded on a phone, it's because your device's decoder
+doesn't recognize the `rotate` parameter. It's unlikely that you can fix this with CSS or other browser tools. The best
+and most efficient solution is to re-encode the video (e.g., using `ffmpeg` or `rotato`). This will ensure that the
+encoder applies the rotation correctly and adjusts the aspect ratio properly.
+
 ---
 
 ## Installation & Deployment
