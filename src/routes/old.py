@@ -46,6 +46,7 @@ async def get_media_page(request: Request, device_id: str = Cookie(None)):
             "file_url": f"/media/{media.relative_path}",
             "refresh_time": refresh_time,
             "is_video": media.is_video,
+            "dynamicBackground": True
         },
     )
     response.set_cookie(key="device_id", value=device_id, max_age=31536000, path="/", httponly=True)

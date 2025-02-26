@@ -40,7 +40,6 @@
             height: 100%;
             background: url("{{ file_url }}") no-repeat center center;
             background-size: cover;
-            /* Префикс для фильтров в старых WebKit-браузерах */
             -webkit-filter: blur(20px) brightness(0.75);
             filter: blur(20px) brightness(0.75);
             z-index: -1;
@@ -57,6 +56,22 @@
             transform: translate(-50%, -50%);
             z-index: 1;
         }
+
+        {% if dynamicBackground %}
+            #background-video {
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                width: 100vw;
+                height: 100vh;
+                object-fit: cover;
+                -webkit-filter: blur(20px) brightness(0.75);
+                -webkit-transform: translate(-50%, -50%);
+                transform: translate(-50%, -50%);
+                filter: blur(20px) brightness(0.75);
+                z-index: -1;
+            }
+        {% endif %}
 
         #main-media {
             max-width: 100%;
@@ -95,14 +110,17 @@
 </head>
 <body>
 {% if is_video %}
+    {% if dynamicBackground %}
+        <video id="background-video" src="{{ file_url }}" autoplay muted loop playsinline></video>
+    {% endif %}
     <video id="main-video" src="{{ file_url }}" controls muted loop autoplay></video>
 {% else %}
     <div id="background"></div>
     <img id="main-media" src="{{ file_url }}" alt="Main">
 {% endif %}
 <div class="controls">
-    <a href="/?refresh=false">Пауза</a>
-    <a href="/">Далее</a>
+    <a href="/?refresh=false">Pause</a>
+    <a href="/">Next</a>
 </div>
 </body>
 </html>
