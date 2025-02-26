@@ -90,12 +90,12 @@
 <body>
 {% if is_video %}
     {% if dynamic_background %}
-        <video id="background-video" src="{{ file_url }}" autoplay muted loop playsinline></video>
+        <video id="background-video" src="{{ file_url }}" autoplay muted loop playsinline webkit-playsinline></video>
     {% else %}
         <div id="background"
              style="background: url('{{ background_file_url }}') center center / cover no-repeat;"></div>
     {% endif %}
-    <video id="main-video" src="{{ file_url }}" controls muted loop autoplay></video>
+    <video id="main-video" src="{{ file_url }}" controls muted loop autoplay playsinline webkit-playsinline></video>
 {% else %}
     <div id="background"></div>
     <img id="main-media" src="{{ file_url }}" alt="Main">
