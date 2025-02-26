@@ -1,4 +1,5 @@
 import logging
+import re
 
 from fastapi import APIRouter, Request, Cookie
 from fastapi.responses import HTMLResponse
@@ -7,6 +8,15 @@ from src.settings import device_queue_manager, templates, MEDIA_PATH
 from src.utils import get_device_id, get_static_background_path
 
 router = APIRouter()
+
+
+def is_outdated_ios(user_agent: str) -> bool:
+    if "iPad" in user_agent or "iPhone" in user_agent:
+        match = re.search(r'OS (\d+)_', user_agent)
+        if match:
+            ios_version = int(match.group(1))
+            return ios_version < 10
+    return False
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -31,6 +41,7 @@ async def get_media_page(request: Request, device_id: str = Cookie(None)):
     if media.is_video and not dynamic_background:
         background_file_url = get_static_background_path(media.relative_path)
 
+    include_inline_video = is_outdated_ios(request.headers.get("user-agent", ""))
     response = templates.TemplateResponse(
         "index.jinja2",
         {
@@ -40,6 +51,7 @@ async def get_media_page(request: Request, device_id: str = Cookie(None)):
             "is_video": media.is_video,
             "dynamic_background": dynamic_background,
             "background_file_url": background_file_url,
+            "include_inline_video": include_inline_video,
         },
     )
     response.set_cookie(key="device_id", value=device_id, max_age=31536000, path="/", httponly=True)

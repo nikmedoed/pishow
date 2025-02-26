@@ -27,5 +27,17 @@
     <a href="/?refresh=false">Pause</a>
     <a href="/">Next</a>
 </div>
+
+{% if include_inline_video %}
+    <script src="/static/iphone-inline-video.min.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            var video = document.getElementById('main-video');
+            if (video) {
+                enableInlineVideo(video, {iPad: true});
+            }
+        });
+    </script>
+{% endif %}
 </body>
 </html>
