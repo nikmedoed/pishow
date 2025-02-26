@@ -10,19 +10,19 @@
     <link href="/static/old.css" rel="stylesheet"/>
 </head>
 <body>
-{% if is_video %}
-    {% if dynamic_background %}
-        <video id="background-video" src="{{ file_url }}" autoplay muted loop playsinline webkit-playsinline></video>
-    {% else %}
-        <div id="background"
-             style="background: url('{{ background_file_url }}') center center / cover no-repeat;"></div>
-    {% endif %}
-    <video id="main-video" src="{{ file_url }}" controls muted loop autoplay playsinline webkit-playsinline></video>
+
+{% if is_video and dynamic_background %}
+    <video id="background-video" src="{{ file_url }}" autoplay muted loop playsinline webkit-playsinline></video>
 {% else %}
-    <div id="background" style="background: url('{{ file_url }}') center center / cover no-repeat;"></div>
-    <img id="main-media" src="{{ file_url }}" alt="Main">
+    <div id="background"
+         style="background: url('{{ background_file_url }}') center center / cover no-repeat;"></div>
 {% endif %}
 
+{% if is_video %}
+    <video id="main-video" src="{{ file_url }}" controls muted loop autoplay playsinline webkit-playsinline></video>
+{% elif file_url %}
+    <img id="main-media" src="{{ file_url }}" alt="Main">
+{% endif %}
 <div class="controls">
     <a href="/?refresh=false">Pause</a>
     <a href="/">Next</a>

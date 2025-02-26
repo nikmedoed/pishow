@@ -1,11 +1,14 @@
 import hashlib
+import logging
 import mimetypes
 import random
 from dataclasses import dataclass
 from pathlib import Path
-from urllib.parse import quote
+from urllib.parse import quote, unquote
 
 from pymediainfo import MediaInfo
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -23,7 +26,7 @@ def get_video_duration(file_path: Path) -> int:
             if track.track_type == "Video" and track.duration:
                 return int(track.duration / 1000)
     except Exception as e:
-        print(f"Error fetching video duration for {file_path}: {e}")
+        logger.error("Error fetching video duration for %s: %s", file_path, e)
     return 0
 
 
@@ -36,6 +39,9 @@ def compute_key_and_url(file: Path, media_dir: Path):
 
 
 class MediaDict(dict):
+    photo_keys = None
+    video_keys = None
+
     def __init__(self, media_dir: Path, background_suffix: str = None, *args, **kwargs):
         """
         Initialize the MediaDict.
@@ -74,6 +80,9 @@ class MediaDict(dict):
             if key not in found_keys:
                 del self[key]
 
+        self.photo_keys = tuple(key for key, media in self.items() if not media.is_video)
+        self.video_keys = tuple(key for key, media in self.items() if media.is_video)
+
         return new_keys
 
     def __getitem__(self, key):
@@ -87,29 +96,33 @@ class MediaDict(dict):
         return item
 
     def get_random_photo_background(self):
-        values = list(self.values())
         for _ in range(5):
-            if not values:
-                break
-            item = random.choice(values)
-            if not item.is_video:
-                return item.relative_path
+            if not self.photo_keys:
+                return
+            key = random.choice(self.photo_keys)
+            item = self[key]
+            if not item:
+                continue
+            decoded_path = unquote(item.relative_path)
+            file_path = self.media_dir / decoded_path
+            if file_path.exists():
+                return decoded_path
 
 
 if __name__ == '__main__':
     media_dir = Path("../../gallery")
     media_dict = MediaDict(media_dir)
 
-    print("Found media files:")
+    logger.info("Found media files:")
     for key, media in media_dict.items():
         file_type = "Video" if media.is_video else "Image"
         duration_str = f", Duration: {media.duration} sec" if media.is_video else ""
-        print(f"Key: {key} | {file_type} | File: {media.relative_path}{duration_str}")
+        logger.info("Key: %s | %s | File: %s%s", key, file_type, media.relative_path, duration_str)
 
     new_keys = media_dict.sync_files()
     if new_keys:
-        print("\nNew files added with keys:")
+        logger.info("\nNew files added with keys:")
         for key in new_keys:
-            print(key)
+            logger.info(key)
     else:
-        print("\nNo new files found.")
+        logger.info("\nNo new files found.")

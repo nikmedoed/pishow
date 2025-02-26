@@ -3,11 +3,13 @@ import pickle
 import random
 from pathlib import Path
 
+from src.media import MediaDict
+
 logger = logging.getLogger(__name__)
 
 
 class DeviceQueue:
-    def __init__(self, device_id: str, media_dict: dict, storage_dir: Path, shuffle: bool = True):
+    def __init__(self, device_id: str, media_dict: MediaDict, storage_dir: Path, shuffle: bool = True):
         """
         Initialize the device queue.
         :param device_id: Device identifier.
@@ -64,10 +66,10 @@ class DeviceQueue:
         self.save_queue()
         logger.debug(f"Queue updated for device {self.device_id}: {len(self.queue)} items.")
 
-    def get_next_counters(self):
-        return self.get_next(), len(self.media_dict) - len(self.queue), len(self.media_dict)
+    def get_next_counters(self, only_photo=False):
+        return self.get_next(only_photo=only_photo), len(self.media_dict) - len(self.queue), len(self.media_dict)
 
-    def get_next(self):
+    def get_next(self, only_photo=False):
         """
         Retrieve the next valid media file from the queue.
         If the queue is empty after update, return None.
@@ -78,10 +80,13 @@ class DeviceQueue:
                 if not self.queue:
                     logger.error("Queue update resulted in empty queue.")
                     return None
+            if only_photo and len(self.media_dict.photo_keys) == 0:
+                return None
             key = self.queue.pop()
             media = self.media_dict.get(key)
-            if media is not None:
-                self.save_queue()
-                logger.debug(
-                    f"Next ok :: did {self.device_id} :: {len(self.queue)} / {len(self.media_dict)} :: {media}")
-                return media
+            if media is None or only_photo and media.is_video:
+                continue
+            self.save_queue()
+            logger.debug(
+                f"Next ok :: did {self.device_id} :: {len(self.queue)} / {len(self.media_dict)} :: {media}")
+            return media

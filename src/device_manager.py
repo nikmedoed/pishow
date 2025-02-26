@@ -1,11 +1,12 @@
 import pickle
 from pathlib import Path
 
-from src.queue import DeviceQueue
+from src.media import MediaDict
+from src.queue import DeviceQueue, logger
 
 
 class DeviceQueueManager:
-    def __init__(self, media_dict: dict, storage_dir: Path = Path("storage"), shuffle: bool = True):
+    def __init__(self, media_dict: MediaDict, storage_dir: Path = Path("storage"), shuffle: bool = True):
         """
         Initialize the DeviceQueueManager.
         :param media_dict: Dictionary of media files.
@@ -46,11 +47,11 @@ class DeviceQueueManager:
             self.device_queues[device_id] = dq
         return self.device_queues[device_id]
 
-    def get_next(self, device_id: str, counters=False):
+    def get_next(self, device_id: str, counters=False, only_photo=False):
         dq = self.get_item(device_id)
-        media = dq.get_next_counters() if counters else dq.get_next()
+        media = dq.get_next_counters(only_photo) if counters else dq.get_next(only_photo)
         if media is None:
-            raise ValueError("No media found for device.")
+            logger.warning(f"No media found for device and settings {device_id}.")
         return media
 
     def update_query(self, keys: list):
