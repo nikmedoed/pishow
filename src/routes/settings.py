@@ -28,6 +28,7 @@ async def update_device_settings(
         show_counters: bool = Form(False),
         show_names: bool = Form(False),
         video_background: str = Form("static"),
+        name: str = Form(""),
         device_id: str = Cookie(None)
 ):
     device_id = get_device_id(request, device_id)
@@ -44,7 +45,8 @@ async def update_device_settings(
         video_background=video_background == "video",
         user_agent=user_agent,
         show_names=show_names,
-        ip_address=client_ip
+        ip_address=client_ip,
+        name=name
 
     )
     return RedirectResponse(url="/", status_code=303)

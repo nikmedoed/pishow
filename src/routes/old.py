@@ -33,7 +33,7 @@ async def get_media_page(request: Request, device_id: str = Cookie(None)):
         is_video = False
         background_file_url = get_random_svg_gradient()
         include_inline_video = False
-        file_name = device_info.user_agent
+        file_name = device_info.device_name
     else:
         refresh_time = media.duration + 3 if media.is_video else device_info.photo_time
         content = f"{MEDIA_PATH}/{media.relative_path}"

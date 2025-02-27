@@ -14,6 +14,9 @@
         <p><strong>User Agent:</strong> {{ settings.user_agent }}</p>
     </div>
     <form method="post" action="/go">
+        <label for="device_name">Device Name:</label>
+        <input type="text" id="device_name" name="name" value="{{ settings.name }}" placeholder="Enter device name">
+
         <label for="photo_time">Photo Display Time (sec):</label>
         <input type="number" id="photo_time" name="photo_time" min="5" value="{{ settings.photo_time }}" required>
 

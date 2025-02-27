@@ -19,6 +19,11 @@ class DeviceInfo:
     show_names: bool = False
     user_agent: str = ""
     ip_address: str = ""
+    name : str = ""
+
+    @property
+    def device_name(self) -> str:
+        return self.name or f"{self.user_agent} at {self.ip_address}"
 
 
 class DeviceQueueManager:
@@ -27,7 +32,6 @@ class DeviceQueueManager:
         Initialize the DeviceQueueManager.
         :param media_dict: Dictionary of media files.
         :param storage_dir: Directory for storing device data.
-        :param shuffle: Whether to shuffle new queue items.
         """
         self.media_dict = media_dict
         self.storage_dir = storage_dir
