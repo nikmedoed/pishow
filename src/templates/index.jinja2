@@ -28,6 +28,11 @@
     <a href="/">Next</a>
     <a href="/go">Setting</a>
 </div>
+
+{% if file_name %}
+    <div class="file-name">{{ file_name }}</div>
+{% endif %}
+
 {% if counters_text %}
     <div class="counters">{{ counters_text }}</div>
 {% endif %}

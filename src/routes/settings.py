@@ -26,6 +26,7 @@ async def update_device_settings(
         modern_mode: bool = Form(False),
         sequential_mode: bool = Form(False),
         show_counters: bool = Form(False),
+        show_names: bool = Form(False),
         video_background: str = Form("static"),
         device_id: str = Cookie(None)
 ):
@@ -42,6 +43,7 @@ async def update_device_settings(
         show_counters=show_counters,
         video_background=video_background == "video",
         user_agent=user_agent,
+        show_names=show_names,
         ip_address=client_ip
 
     )

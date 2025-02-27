@@ -4,7 +4,7 @@ import mimetypes
 import random
 from dataclasses import dataclass
 from pathlib import Path
-from urllib.parse import quote, unquote
+from urllib.parse import quote
 
 from pymediainfo import MediaInfo
 
@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class MediaFile:
+    file: str
     relative_path: str
     is_video: bool = False
     duration: int = None
@@ -28,14 +29,6 @@ def get_video_duration(file_path: Path) -> int:
     except Exception as e:
         logger.error("Error fetching video duration for %s: %s", file_path, e)
     return 0
-
-
-def compute_key_and_url(file: Path, media_dir: Path):
-    """Compute unique key and URL for the file."""
-    rel_path = str(file.relative_to(media_dir)).replace("\\", "/")
-    key = hashlib.md5(rel_path.encode("utf-8")).hexdigest()
-    url = quote(rel_path)
-    return key, url
 
 
 class MediaDict(dict):
@@ -66,14 +59,17 @@ class MediaDict(dict):
             if not (mime_type and (mime_type.startswith("image/") or mime_type.startswith("video/"))):
                 continue
 
-            key, url = compute_key_and_url(file, self.media_dir)
+            rel_path = str(file.relative_to(self.media_dir)).replace("\\", "/")
+            key = hashlib.md5(rel_path.encode("utf-8")).hexdigest()
+            url = quote(rel_path)
+
             found_keys.add(key)
             if key not in self:
                 if mime_type.startswith("image/"):
-                    self[key] = MediaFile(relative_path=url)
+                    self[key] = MediaFile(relative_path=url, file=rel_path)
                 else:
                     duration = get_video_duration(file)
-                    self[key] = MediaFile(relative_path=url, is_video=True, duration=duration)
+                    self[key] = MediaFile(relative_path=url, file=rel_path, is_video=True, duration=duration)
                 new_keys.append(key)
 
         for key in list(self.keys()):
@@ -103,10 +99,9 @@ class MediaDict(dict):
             item = self[key]
             if not item:
                 continue
-            decoded_path = unquote(item.relative_path)
-            file_path = self.media_dir / decoded_path
+            file_path = self.media_dir / item.file
             if file_path.exists():
-                return decoded_path
+                return item.file
 
 
 if __name__ == '__main__':

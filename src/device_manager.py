@@ -16,6 +16,7 @@ class DeviceInfo:
     sequential_mode: bool = False
     show_counters: bool = False
     video_background: bool = False
+    show_names: bool = False
     user_agent: str = ""
     ip_address: str = ""
 

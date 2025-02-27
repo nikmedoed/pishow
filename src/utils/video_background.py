@@ -7,10 +7,9 @@ from src.settings import MEDIA_DIR, VIDEO_BACKGROUND_SUFFIX, media_handler, MEDI
 from src.utils.gradient import get_random_svg_gradient
 
 
-def get_static_background_path(relative_path: str) -> str:
-    decoded_path = unquote(relative_path)
-    input_path = os.path.join(MEDIA_DIR, decoded_path)
-    base, _ = os.path.splitext(decoded_path)
+def get_static_background_path(file_path: str) -> str:
+    input_path = os.path.join(MEDIA_DIR, file_path)
+    base, _ = os.path.splitext(file_path)
     background_filename = f"{base}{VIDEO_BACKGROUND_SUFFIX}"
     background_file_path = os.path.join(MEDIA_DIR, background_filename)
 

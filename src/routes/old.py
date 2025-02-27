@@ -33,14 +33,16 @@ async def get_media_page(request: Request, device_id: str = Cookie(None)):
         is_video = False
         background_file_url = get_random_svg_gradient()
         include_inline_video = False
+        file_name = device_info.user_agent
     else:
         refresh_time = media.duration + 3 if media.is_video else device_info.photo_time
         content = f"{MEDIA_PATH}/{media.relative_path}"
         background_file_url = content
         if media.is_video and not device_info.video_background:
-            background_file_url = get_static_background_path(media.relative_path)
+            background_file_url = get_static_background_path(media.file)
         is_video = media.is_video
         include_inline_video = is_outdated_ios(request.headers.get("user-agent", ""))
+        file_name = media.file
 
     response = templates.TemplateResponse(
         "index.jinja2",
@@ -53,6 +55,7 @@ async def get_media_page(request: Request, device_id: str = Cookie(None)):
             "background_file_url": background_file_url,
             "include_inline_video": include_inline_video,
             "counters_text": counters_text,
+            "file_name": file_name,
         },
     )
     response.set_cookie(key="device_id", value=device_id, max_age=31536000, path="/", httponly=True)
