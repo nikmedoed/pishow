@@ -1,5 +1,5 @@
 import pickle
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from pathlib import Path
 from typing import Tuple, Union, Optional
 
@@ -28,6 +28,7 @@ class DeviceInfo:
     user_agent: str = ""
     ip_address: str = ""
     name: str = ""
+    huy: int = 13452345
 
     @property
     def device_name(self) -> str:
@@ -52,9 +53,20 @@ class DeviceQueueManager:
         if self.devices_info_file.exists():
             try:
                 with self.devices_info_file.open("rb") as f:
-                    return pickle.load(f)
+                    info = pickle.load(f)
+                    valid_fields = {f.name for f in fields(DeviceInfo)}
+                    for k in list(info.keys()):
+                        v = info[k]
+                        if isinstance(info, DeviceInfo):
+                            v = v.__dict__
+                        elif not isinstance(info, dict):
+                            logger.warning(f"Incorrect info structure for {k} :: skipped")
+                            del info[k]
+                            continue
+                        info[k] = DeviceInfo(**{k: v for k, v in v.items() if k in valid_fields})
+                    return info
             except Exception as e:
-                print(f"Error loading device info: {e}")
+                logger.error(f"Error loading device info: {e}")
         return {}
 
     def _save_devices_info(self):
