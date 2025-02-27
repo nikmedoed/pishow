@@ -62,7 +62,8 @@ async def admin_device_settings(request: Request, device_id: str):
         "request": request,
         "settings": device_info.__dict__,
         "device_id": device_id,
-        "form_action": f"/admin/{device_id}"
+        "form_action": f"/admin/{device_id}",
+        "settings_checks": SETTINGS_LIST
     })
 
 
