@@ -4,7 +4,7 @@ from starlette.responses import RedirectResponse
 from src.settings import device_queue_manager, templates
 from src.utils.device import get_device_id
 
-router = APIRouter()
+router = APIRouter(prefix="/go", tags=["settings"])
 
 
 @router.get("")

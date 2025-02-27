@@ -1,11 +1,10 @@
+import importlib
 import logging
 import os
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
-from src.routes.old import router as old
-from src.routes.settings import router as settings
 from src.settings import MEDIA_DIR, MEDIA_PATH
 
 logging.basicConfig(
@@ -17,5 +16,13 @@ app = FastAPI()
 app.mount(MEDIA_PATH, StaticFiles(directory=str(MEDIA_DIR)), name="media")
 app.mount("/static", StaticFiles(directory="src/static"), name="static")
 
-app.include_router(old)
-app.include_router(settings, prefix="/go", tags=["settings"])
+routes_path = os.path.join(os.path.dirname(__file__), "src", "routes")
+
+for file in os.listdir(routes_path):
+    try:
+        module_name = os.path.splitext(file)[0]
+        imported_module = importlib.import_module(f"src.routes.{module_name}")
+        if hasattr(imported_module, "router"):
+            app.include_router(imported_module.router)
+    except Exception as e:
+        logging.warning(f"Skipped {file} :: {e}")

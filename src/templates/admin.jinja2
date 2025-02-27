@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Admin Dashboard</title>
+  <link href="/static/settings.css" rel="stylesheet"/>
+  <style>
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 8px;
+      text-align: left;
+    }
+    th {
+      background: #eee;
+    }
+    form {
+      display: inline;
+    }
+    .btn {
+      margin: 2px;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>Admin Dashboard</h1>
+  <!-- Глобальная кнопка обновления медиасписка -->
+  <form method="post" action="/admin/update_content">
+    <button type="submit" class="btn">Update Content</button>
+  </form>
+
+  <h2>Devices</h2>
+  <table>
+    <tr>
+      <th>ID</th>
+      <th>Name</th>
+      <th>IP</th>
+      <th>User Agent</th>
+      <th>Actions</th>
+    </tr>
+    {% for device_id, info in devices.items() %}
+    <tr>
+      <td>{{ device_id }}</td>
+      <td>{{ info.name or (info.user_agent ~ " at " ~ info.ip_address) }}</td>
+      <td>{{ info.ip_address }}</td>
+      <td>{{ info.user_agent }}</td>
+      <td>
+        <!-- Очистка очереди устройства -->
+        <form method="post" action="/admin/clear_queue">
+          <input type="hidden" name="device_id" value="{{ device_id }}">
+          <button type="submit" class="btn">Clear Queue</button>
+        </form>
+        <!-- Удаление информации об устройстве -->
+        <form method="post" action="/admin/delete_device">
+          <input type="hidden" name="device_id" value="{{ device_id }}">
+          <button type="submit" class="btn">Delete Device</button>
+        </form>
+        <!-- Переход к редактированию настроек устройства -->
+        <a href="/admin/settings/{{ device_id }}" class="btn">Edit Settings</a>
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+</body>
+</html>
