@@ -40,6 +40,12 @@ support.
     - Controls to update the media list, clear individual device queues, delete devices, and remotely edit device
       settings.
 
+- **Automatic Media Conversion:**  
+  New media files can be uploaded (via the admin panel or directly to the designated folder) and are automatically
+  converted—images are compressed and resized (up to 3840×2160 at ~60% quality) and videos re-encoded to MP4—using
+  FFmpeg and supporting libraries.  
+  *Dependencies: ffmpeg, pillow-heif, httpx (installed via requirements.txt).*
+
 ---
 
 ## Supported Formats & Media Recommendations

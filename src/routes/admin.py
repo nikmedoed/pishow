@@ -1,10 +1,12 @@
 import shutil
+import subprocess
+import sys
 
 from fastapi import APIRouter, Request, Form, UploadFile, File
 from starlette.responses import RedirectResponse, HTMLResponse
 
 from src.device_manager import SETTINGS_LIST
-from src.settings import device_queue_manager, templates, UPLOADED_DIR
+from src.settings import device_queue_manager, templates, UPLOADED_RAW_DIR
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -73,13 +75,15 @@ async def admin_device_settings(request: Request, device_id: str):
 async def upload_files(request: Request, files: list[UploadFile] = File(...)):
     try:
         for file in files:
-            # destination = UPLOADED_RAW_DIR / file.filename
-            destination = UPLOADED_DIR / file.filename
+            destination = UPLOADED_RAW_DIR / file.filename
             with open(destination, "wb") as buffer:
                 shutil.copyfileobj(file.file, buffer)
-        # subprocess.Popen(["python", "converter.py"], start_new_session=True)
-        # message = "Files uploaded. Converting started."
-        message = "Files uploaded"
+        port = str(request.url.port or "8000")
+        subprocess.Popen(
+            [sys.executable, "src/utils/converter.py", port],
+            start_new_session=True
+        )
+        message = "Files uploaded. Converting started."
     except Exception as e:
         message = f"Uploading error {e}"
     request.session["update_msg"] = message
