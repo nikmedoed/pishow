@@ -35,14 +35,18 @@ class MediaDict(dict):
     photo_keys = None
     video_keys = None
 
-    def __init__(self, media_dir: Path, background_suffix: str = None, *args, **kwargs):
+    def __init__(self, media_dir: Path,
+                 background_suffix: str = None,
+                 uploaded_media_raw: str = None,
+                 *args, **kwargs):
         """
         Initialize the MediaDict.
         :param media_dir: Directory containing media files.
         """
         super().__init__(*args, **kwargs)
         self.media_dir = media_dir
-        self.background_suffix=background_suffix
+        self.background_suffix = background_suffix
+        self.uploaded_media_raw = uploaded_media_raw
         self.sync_files()
 
     def sync_files(self):
@@ -54,7 +58,8 @@ class MediaDict(dict):
         found_keys = set()
 
         for file in self.media_dir.rglob("*"):
-            if self.background_suffix is not None and str(file).endswith(self.background_suffix):
+            if (self.background_suffix is not None and str(file).endswith(self.background_suffix)
+                    or self.uploaded_media_raw is not None and file.is_relative_to(self.uploaded_media_raw)):
                 continue
             mime_type, _ = mimetypes.guess_type(file)
             if not (mime_type and (mime_type.startswith("image/") or mime_type.startswith("video/"))):

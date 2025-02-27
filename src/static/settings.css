@@ -228,3 +228,25 @@ input[type="text"] {
         font-size: 1.1em;
     }
 }
+
+.upload-form {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.btn-upload,
+.btn-upload-submit {
+    display: inline-block;
+    padding: 10px 20px;
+    border: none;
+    background: #007bff;
+    color: #fff;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+.btn-upload:hover,
+.btn-upload-submit:hover {
+    background: #0056b3;
+}
