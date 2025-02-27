@@ -1,27 +1,31 @@
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
 import datetime
 import logging
 import subprocess
 import sys
 from pathlib import Path
-from zoneinfo import ZoneInfo  # Python 3.9+
 
 import httpx
 from PIL import Image
 
+from src.settings import UPLOADED_DIR, UPLOADED_RAW_DIR
+
 # Register HEIF opener so that Pillow can read HEIC files.
 try:
     from pillow_heif import register_heif_opener
+
     register_heif_opener()
     logging.info("pillow-heif registered successfully")
 except Exception as e:
     logging.warning("pillow-heif could not be registered: %s", e)
 
-from src.settings import UPLOADED_DIR, UPLOADED_RAW_DIR
-
 logger = logging.getLogger("media converter")
 logging.basicConfig(level=logging.INFO)
 
-# Define supported extensions.
 IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.heic', '.png', '.bmp', '.tiff', '.tif', '.webp']
 VIDEO_EXTENSIONS = ['.mp4', '.mov', '.avi', '.mkv']
 
