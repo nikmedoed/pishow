@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Request, Form, Cookie
 from starlette.responses import RedirectResponse
 
+from src.device_manager import SETTINGS_LIST
 from src.settings import device_queue_manager, templates
 from src.utils.device import get_device_id
 
@@ -14,7 +15,9 @@ async def device_settings(request: Request, device_id: str = Cookie(None)):
     return templates.TemplateResponse("settings.jinja2", {
         "request": request,
         "settings": device_info.__dict__,
-        "device_id": device_id
+        "device_id": device_id,
+        "form_action": "/go",
+        "settings_checks": SETTINGS_LIST
     })
 
 

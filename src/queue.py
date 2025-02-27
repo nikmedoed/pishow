@@ -48,6 +48,16 @@ class DeviceQueue:
         except Exception as e:
             logger.error(f"Error saving queue for {self.device_id}: {e}")
 
+    def delete_dump(self):
+        """Удаляет файл очереди (если он существует) и очищает список очереди."""
+        try:
+            if self.storage_file.exists():
+                self.storage_file.unlink()
+                logger.debug(f"Queue file {self.storage_file} deleted for device {self.device_id}.")
+        except Exception as e:
+            logger.error(f"Error deleting queue file for device {self.device_id}: {e}")
+        self.queue = []
+
     def update_queue(self, keys: list = None):
         """
         Update the queue with new keys.

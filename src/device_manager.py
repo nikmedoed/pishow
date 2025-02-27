@@ -7,6 +7,14 @@ from src.media import MediaDict, MediaFile
 from src.queue import DeviceQueue
 from src.queue import logger
 
+SETTINGS_LIST = {
+    'only_photo': 'Photo only mode',
+    # 'modern_mode': 'Modern Mode',
+    'sequential_mode': 'Sequential mode',
+    'show_counters': 'Show counters',
+    'show_names': 'Show file names'
+}
+
 
 @dataclass
 class DeviceInfo:
@@ -19,7 +27,7 @@ class DeviceInfo:
     show_names: bool = False
     user_agent: str = ""
     ip_address: str = ""
-    name : str = ""
+    name: str = ""
 
     @property
     def device_name(self) -> str:
@@ -56,10 +64,21 @@ class DeviceQueueManager:
         except Exception as e:
             print(f"Error saving device info: {e}")
 
-    def __getitem__(self, device_id: str):
-        return self.get_item(device_id)
+    def delete_queue(self, device_id: str):
+        dq, _ = self.get_device_data(device_id)
+        dq.delete_dump()
+        del self.device_queues[device_id]
 
-    def get_item(self, device_id: str) -> Tuple[DeviceQueue, DeviceInfo]:
+    def delete_device(self, device_id: str):
+        self.delete_queue(device_id)
+        if device_id in self.devices_info:
+            del self.devices_info[device_id]
+            self._save_devices_info()
+
+    def __getitem__(self, device_id: str):
+        return self.get_device_data(device_id)
+
+    def get_device_data(self, device_id: str) -> Tuple[DeviceQueue, DeviceInfo]:
         device_info = self.get_device_info(device_id)
         if device_id not in self.device_queues:
             dq = DeviceQueue(device_id, self.media_dict, self.storage_dir, shuffle=not device_info.sequential_mode)
@@ -70,7 +89,7 @@ class DeviceQueueManager:
         return dq, device_info
 
     def get_next(self, device_id: str) -> Optional[Union[MediaFile, Tuple[MediaFile, int, int]]]:
-        dq, device_info = self.get_item(device_id)
+        dq, device_info = self.get_device_data(device_id)
         only_photo = device_info.only_photo
         media = dq.get_next_counters(only_photo) if device_info.show_counters else dq.get_next(only_photo)
         if media is None:

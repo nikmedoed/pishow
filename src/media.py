@@ -42,9 +42,10 @@ class MediaDict(dict):
         """
         super().__init__(*args, **kwargs)
         self.media_dir = media_dir
-        self.sync_files(background_suffix)
+        self.background_suffix=background_suffix
+        self.sync_files()
 
-    def sync_files(self, background_suffix=None):
+    def sync_files(self):
         """
         Synchronize media files from the directory.
         Returns a list of new keys.
@@ -53,7 +54,7 @@ class MediaDict(dict):
         found_keys = set()
 
         for file in self.media_dir.rglob("*"):
-            if background_suffix is not None and str(file).endswith(background_suffix):
+            if self.background_suffix is not None and str(file).endswith(self.background_suffix):
                 continue
             mime_type, _ = mimetypes.guess_type(file)
             if not (mime_type and (mime_type.startswith("image/") or mime_type.startswith("video/"))):

@@ -1,71 +1,63 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Admin Dashboard</title>
-  <link href="/static/settings.css" rel="stylesheet"/>
-  <style>
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 20px;
-    }
-    th, td {
-      border: 1px solid #ccc;
-      padding: 8px;
-      text-align: left;
-    }
-    th {
-      background: #eee;
-    }
-    form {
-      display: inline;
-    }
-    .btn {
-      margin: 2px;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1"> <!-- Добавлен для мобильной адаптации -->
+    <title>Admin Dashboard</title>
+    <link href="/static/settings.css" rel="stylesheet"/>
 </head>
 <body>
+<a href="/" class="admin-link">Start show</a>
 <div class="container">
-  <h1>Admin Dashboard</h1>
-  <!-- Глобальная кнопка обновления медиасписка -->
-  <form method="post" action="/admin/update_content">
-    <button type="submit" class="btn">Update Content</button>
-  </form>
+    <h1>Admin Dashboard</h1>
+    <div class="media-summary">
+        Total media: {{ media_total }} | Photos: {{ media_photos }} | Videos: {{ media_videos }}
+    </div>
+    {% if update_msg %}
+        <div class="update-msg">{{ update_msg }}</div>
+    {% endif %}
+    <form method="post" action="/admin/update_content" style="text-align: center; margin-bottom: 20px;">
+        <button type="submit" class="btn btn-edit">Update Media List</button>
+    </form>
 
-  <h2>Devices</h2>
-  <table>
-    <tr>
-      <th>ID</th>
-      <th>Name</th>
-      <th>IP</th>
-      <th>User Agent</th>
-      <th>Actions</th>
-    </tr>
-    {% for device_id, info in devices.items() %}
-    <tr>
-      <td>{{ device_id }}</td>
-      <td>{{ info.name or (info.user_agent ~ " at " ~ info.ip_address) }}</td>
-      <td>{{ info.ip_address }}</td>
-      <td>{{ info.user_agent }}</td>
-      <td>
-        <!-- Очистка очереди устройства -->
-        <form method="post" action="/admin/clear_queue">
-          <input type="hidden" name="device_id" value="{{ device_id }}">
-          <button type="submit" class="btn">Clear Queue</button>
-        </form>
-        <!-- Удаление информации об устройстве -->
-        <form method="post" action="/admin/delete_device">
-          <input type="hidden" name="device_id" value="{{ device_id }}">
-          <button type="submit" class="btn">Delete Device</button>
-        </form>
-        <!-- Переход к редактированию настроек устройства -->
-        <a href="/admin/settings/{{ device_id }}" class="btn">Edit Settings</a>
-      </td>
-    </tr>
-    {% endfor %}
-  </table>
+    <div class="list-label">Devices List</div>
+    <div class="card-container">
+        {% for device_id, info in devices.items() %}
+            <div class="card">
+                <div class="card-info">
+                    <h2>{{ info.name or (info.user_agent ~ " at " ~ info.ip_address) }}</h2>
+                    <p><strong>ID:</strong> {{ device_id }}</p>
+                    <p><strong>IP:</strong> {{ info.ip_address }}</p>
+                    <p><strong>User Agent:</strong> {{ info.user_agent }}</p>
+                    <p>
+                        <strong>Queue items:</strong>
+                        {{ (device_queue_manager.device_queues[device_id].queue|length) if device_id in device_queue_manager.device_queues else 0 }}
+                    </p>
+
+                    <div class="settings-list">
+                        {% for key, label in settings_checks.items() %}
+                            {% if info[key] %}
+                                <span>{{ label }}</span>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="card-actions">
+                    <form method="post" action="/admin/clear_queue">
+                        <input type="hidden" name="device_id" value="{{ device_id }}">
+                        <button type="submit" class="btn btn-clear">Clear Queue</button>
+                    </form>
+                    <form method="post" action="/admin/delete_device">
+                        <input type="hidden" name="device_id" value="{{ device_id }}">
+                        <button type="submit" class="btn btn-delete">Delete Device</button>
+                    </form>
+                    <a href="/admin/settings/{{ device_id }}" class="btn btn-edit">Edit Settings</a>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+
 </div>
+<a href="/" class="admin-link">Start show</a>
 </body>
 </html>

@@ -87,3 +87,144 @@ input[type="text"] {
         font-size: 1.3em;
     }
 }
+
+.admin-link {
+    display: block;
+    text-align: center;
+    margin-top: 1em;
+    margin-bottom: 1em;
+    font-size: 1.2em;
+    color: #007BFF;
+    text-decoration: none;
+    transition: color 0.3s;
+}
+
+.admin-link:hover {
+    color: #5f14a1;
+}
+
+
+.media-summary {
+    text-align: center;
+    margin-bottom: 20px;
+    font-size: 1.3em;
+}
+
+.update-msg {
+    text-align: center;
+    margin-bottom: 20px;
+    color: green;
+    font-weight: bold;
+}
+
+.card-container {
+    display: block;
+    margin-bottom: 20px;
+}
+
+.list-label {
+    font-size: 1.2em;
+    font-weight: bold;
+    margin-bottom: 10px;
+    text-align: center;
+}
+
+.card {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 15px;
+    background: #fafafa;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.card-info {
+    flex: 1;
+    padding-right: 15px;
+}
+
+.card-info h2 {
+    margin-top: 0;
+    font-size: 1.5em;
+    margin-bottom: 10px;
+}
+
+.card-info p {
+    margin: 5px 0;
+    font-size: 0.95em;
+}
+
+.settings-list {
+    margin-top: 10px;
+}
+
+.settings-list span {
+    display: inline-block;
+    background: #eee;
+    color: #333;
+    padding: 2px 4px;
+    margin: 2px;
+    border-radius: 3px;
+    font-size: 0.75em;
+}
+
+.card-actions {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 5px;
+}
+
+.card-actions form,
+.card-actions a {
+    margin: 0;
+}
+
+.btn {
+    padding: 8px;
+    border: none;
+    border-radius: 4px;
+    color: #fff;
+    font-size: 0.9em;
+    cursor: pointer;
+    text-align: center;
+    text-decoration: none;
+}
+
+.btn-clear {
+    background-color: #17a2b8;
+}
+
+.btn-delete {
+    background-color: #dc3545;
+}
+
+.btn-edit {
+    background-color: #28a745;
+}
+
+@media (max-width: 600px) {
+    .card {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .card-actions {
+        width: 100%;
+        flex-direction: row;
+        justify-content: space-around;
+        margin-top: 10px;
+    }
+
+    .card-info p {
+        font-size: 0.9em;
+    }
+
+    .media-summary {
+        font-size: 1.1em;
+    }
+}
