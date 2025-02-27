@@ -7,7 +7,7 @@ from src.utils.device import get_device_id
 router = APIRouter()
 
 
-@router.get("/go")
+@router.get("")
 async def device_settings(request: Request, device_id: str = Cookie(None)):
     device_id = get_device_id(request, device_id)
     device_info = device_queue_manager.get_device_info(device_id) or {}
@@ -18,7 +18,7 @@ async def device_settings(request: Request, device_id: str = Cookie(None)):
     })
 
 
-@router.post("/go")
+@router.post("")
 async def update_device_settings(
         request: Request,
         photo_time: int = Form(15),

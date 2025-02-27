@@ -1,9 +1,11 @@
 import pickle
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Tuple, Union, Optional
 
-from src.media import MediaDict
-from src.queue import DeviceQueue, logger
+from src.media import MediaDict, MediaFile
+from src.queue import DeviceQueue
+from src.queue import logger
 
 
 @dataclass
@@ -19,7 +21,7 @@ class DeviceInfo:
 
 
 class DeviceQueueManager:
-    def __init__(self, media_dict: MediaDict, storage_dir: Path = Path("storage"), shuffle: bool = True):
+    def __init__(self, media_dict: MediaDict, storage_dir: Path = Path("storage")):
         """
         Initialize the DeviceQueueManager.
         :param media_dict: Dictionary of media files.
@@ -29,7 +31,6 @@ class DeviceQueueManager:
         self.media_dict = media_dict
         self.storage_dir = storage_dir
         self.storage_dir.mkdir(exist_ok=True)
-        self.shuffle = shuffle
         self.device_queues = {}
         self.devices_info_file = self.storage_dir / "devices.pkl"
         self.devices_info = self._load_devices_info()
@@ -53,15 +54,20 @@ class DeviceQueueManager:
     def __getitem__(self, device_id: str):
         return self.get_item(device_id)
 
-    def get_item(self, device_id: str):
+    def get_item(self, device_id: str) -> Tuple[DeviceQueue, DeviceInfo]:
+        device_info = self.get_device_info(device_id)
         if device_id not in self.device_queues:
-            dq = DeviceQueue(device_id, self.media_dict, self.storage_dir, shuffle=self.shuffle)
+            dq = DeviceQueue(device_id, self.media_dict, self.storage_dir, shuffle=not device_info.sequential_mode)
             self.device_queues[device_id] = dq
-        return self.device_queues[device_id]
+        else:
+            dq = self.device_queues[device_id]
+            dq.shuffle = not device_info.sequential_mode
+        return dq, device_info
 
-    def get_next(self, device_id: str, counters=False, only_photo=False):
-        dq = self.get_item(device_id)
-        media = dq.get_next_counters(only_photo) if counters else dq.get_next(only_photo)
+    def get_next(self, device_id: str) -> Optional[Union[MediaFile, Tuple[MediaFile, int, int]]]:
+        dq, device_info = self.get_item(device_id)
+        only_photo = device_info.only_photo
+        media = dq.get_next_counters(only_photo) if device_info.show_counters else dq.get_next(only_photo)
         if media is None:
             logger.warning(f"No media found for device and settings {device_id}.")
         return media

@@ -14,18 +14,13 @@ router = APIRouter()
 @router.get("/", response_class=HTMLResponse)
 async def get_media_page(request: Request, device_id: str = Cookie(None)):
     device_id = get_device_id(request, device_id)
-
-    dynamic_background = False
-    counters = True
-    only_photo = False
-    show_time = 15
-
+    device_info = device_queue_manager.get_device_info(device_id)
     try:
-        if counters:
-            media, position, total = device_queue_manager.get_next(device_id, counters=True, only_photo=only_photo)
+        if device_info.show_counters:
+            media, position, total = device_queue_manager.get_next(device_id)
             counters_text = f"{position} / {total}"
         else:
-            media = device_queue_manager.get_next(device_id, only_photo=only_photo)
+            media = device_queue_manager.get_next(device_id)
             counters_text = None
     except Exception as e:
         logging.error(f"Error retrieving media for device {device_id}: {e}")
@@ -34,15 +29,15 @@ async def get_media_page(request: Request, device_id: str = Cookie(None)):
 
     if media is None:
         content = None
-        refresh_time = show_time * 2
+        refresh_time = device_info.photo_time * 2
         is_video = False
         background_file_url = get_random_svg_gradient()
         include_inline_video = False
     else:
-        refresh_time = media.duration + 3 if media.is_video else show_time
+        refresh_time = media.duration + 3 if media.is_video else device_info.photo_time
         content = f"{MEDIA_PATH}/{media.relative_path}"
         background_file_url = content
-        if media.is_video and not dynamic_background:
+        if media.is_video and not device_info.video_background:
             background_file_url = get_static_background_path(media.relative_path)
         is_video = media.is_video
         include_inline_video = is_outdated_ios(request.headers.get("user-agent", ""))
@@ -54,7 +49,7 @@ async def get_media_page(request: Request, device_id: str = Cookie(None)):
             "file_url": content,
             "refresh_time": refresh_time,
             "is_video": is_video,
-            "dynamic_background": dynamic_background,
+            "dynamic_background": device_info.video_background,
             "background_file_url": background_file_url,
             "include_inline_video": include_inline_video,
             "counters_text": counters_text,
