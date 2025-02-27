@@ -57,9 +57,9 @@ class DeviceQueueManager:
                     valid_fields = {f.name for f in fields(DeviceInfo)}
                     for k in list(info.keys()):
                         v = info[k]
-                        if isinstance(info, DeviceInfo):
+                        if isinstance(v, DeviceInfo):
                             v = v.__dict__
-                        elif not isinstance(info, dict):
+                        elif not isinstance(v, dict):
                             logger.warning(f"Incorrect info structure for {k} :: skipped")
                             del info[k]
                             continue
