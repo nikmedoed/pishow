@@ -3,3 +3,4 @@ fastapi
 pymediainfo
 python-dotenv
 jinja2
+python-multipart

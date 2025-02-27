@@ -1,0 +1,89 @@
+body {
+    margin: 0;
+    padding: 0;
+    font-family: Arial, sans-serif;
+    background-color: #f0f0f0;
+    color: #333;
+}
+
+.container {
+    max-width: 800px;
+    margin: 20px auto;
+    padding: 20px;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+h1 {
+    text-align: center;
+    font-size: 2.5em;
+    margin-bottom: 20px;
+}
+
+form {
+    display: flex;
+    flex-direction: column;
+}
+
+label {
+    font-size: 1.5em;
+    margin-bottom: 10px;
+    display: block;
+}
+
+input[type="number"],
+input[type="text"] {
+    font-size: 1.5em;
+    padding: 10px;
+    margin-bottom: 20px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.checkbox-group, .radio-group {
+    margin-bottom: 20px;
+}
+
+.checkbox-group input[type="checkbox"],
+.radio-group input[type="radio"] {
+    transform: scale(1.5);
+    margin-right: 10px;
+    vertical-align: middle;
+}
+
+.radio-group p {
+    font-size: 1.5em;
+    margin-bottom: 10px;
+}
+
+.btn {
+    font-size: 1.75em;
+    padding: 15px;
+    border: none;
+    border-radius: 8px;
+    background-color: #007BFF;
+    color: #fff;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.btn:hover {
+    background-color: #0056b3;
+}
+
+@media (max-width: 600px) {
+    h1 {
+        font-size: 2em;
+    }
+
+    label, .radio-group p {
+        font-size: 1.3em;
+    }
+
+    input, .btn {
+        font-size: 1.3em;
+    }
+}

@@ -1,24 +1,14 @@
 import logging
-import re
 
 from fastapi import APIRouter, Request, Cookie
 from fastapi.responses import HTMLResponse
 
 from src.settings import device_queue_manager, templates, MEDIA_PATH
-from src.utils.device import get_device_id
+from src.utils.device import get_device_id, is_outdated_ios
 from src.utils.gradient import get_random_svg_gradient
 from src.utils.video_background import get_static_background_path
 
 router = APIRouter()
-
-
-def is_outdated_ios(user_agent: str) -> bool:
-    if "iPad" in user_agent or "iPhone" in user_agent:
-        match = re.search(r'OS (\d+)_', user_agent)
-        if match:
-            ios_version = int(match.group(1))
-            return ios_version < 10
-    return False
 
 
 @router.get("/", response_class=HTMLResponse)

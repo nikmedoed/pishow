@@ -1,8 +1,21 @@
 import pickle
+from dataclasses import dataclass
 from pathlib import Path
 
 from src.media import MediaDict
 from src.queue import DeviceQueue, logger
+
+
+@dataclass
+class DeviceInfo:
+    photo_time: int = 15
+    only_photo: bool = False
+    modern_mode: bool = False
+    sequential_mode: bool = False
+    show_counters: bool = False
+    video_background: bool = False
+    user_agent: str = ""
+    ip_address: str = ""
 
 
 class DeviceQueueManager:
@@ -17,7 +30,7 @@ class DeviceQueueManager:
         self.storage_dir = storage_dir
         self.storage_dir.mkdir(exist_ok=True)
         self.shuffle = shuffle
-        self.device_queues = {}  # Mapping from device_id to DeviceQueue instance.
+        self.device_queues = {}
         self.devices_info_file = self.storage_dir / "devices.pkl"
         self.devices_info = self._load_devices_info()
 
@@ -42,7 +55,6 @@ class DeviceQueueManager:
 
     def get_item(self, device_id: str):
         if device_id not in self.device_queues:
-            # Create DeviceQueue; its constructor now loads persisted queue and only updates if empty.
             dq = DeviceQueue(device_id, self.media_dict, self.storage_dir, shuffle=self.shuffle)
             self.device_queues[device_id] = dq
         return self.device_queues[device_id]
@@ -58,9 +70,33 @@ class DeviceQueueManager:
         for dq in self.device_queues.values():
             dq.update_queue(keys)
 
-    def get_device_info(self, device_id: str):
-        return self.devices_info.get(device_id)
+    def get_device_info(self, device_id: str) -> DeviceInfo:
+        info = self.devices_info.get(device_id)
+        if info is None:
+            info = DeviceInfo()
+            self.devices_info[device_id] = info
+            self._save_devices_info()
+        return info
 
-    def update_device_info(self, device_id: str, info: dict):
-        self.devices_info[device_id] = info
+    def update_device_info(self, device_id: str, info=None, **kwargs) -> None:
+        if device_id in self.devices_info:
+            device_info = self.devices_info[device_id]
+        else:
+            device_info = DeviceInfo()
+
+        update_fields = {}
+        if info is not None:
+            if isinstance(info, dict):
+                update_fields.update(info)
+            elif isinstance(info, DeviceInfo):
+                update_fields.update(info.__dict__)
+            else:
+                raise ValueError("info must be a dict or a DeviceInfo instance")
+        update_fields.update(kwargs)
+
+        for field, value in update_fields.items():
+            if field in device_info.__dataclass_fields__:
+                setattr(device_info, field, value)
+
+        self.devices_info[device_id] = device_info
         self._save_devices_info()
