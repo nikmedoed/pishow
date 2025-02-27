@@ -55,7 +55,7 @@ async def get_media_page(request: Request, device_id: str = Cookie(None)):
             "background_file_url": background_file_url,
             "include_inline_video": include_inline_video,
             "counters_text": counters_text,
-            "file_name": file_name,
+            "file_name": file_name if device_info.show_names else None,
         },
     )
     response.set_cookie(key="device_id", value=device_id, max_age=31536000, path="/", httponly=True)
