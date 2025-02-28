@@ -1,3 +1,4 @@
+import os
 import shutil
 import subprocess
 import sys
@@ -6,11 +7,20 @@ from fastapi import APIRouter, Request, Form, UploadFile, File
 from starlette.responses import RedirectResponse, HTMLResponse
 
 from src.device_manager import SETTINGS_LIST
-from src.settings import device_queue_manager, templates, UPLOADED_RAW_DIR
+from src.settings import device_queue_manager, templates, UPLOADED_RAW_DIR, UPLOADED_DIR, VIDEO_BACKGROUND_SUFFIX
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 SETTINGS_CHECKS = {**SETTINGS_LIST, "video_background": "Video Background"}
+
+
+def count_files_recursive(directory):
+    return sum(
+        1
+        for root, dirs, files in os.walk(directory)
+        for file in files
+        if not file.endswith(VIDEO_BACKGROUND_SUFFIX)
+    )
 
 
 @router.get("", response_class=HTMLResponse)
@@ -30,7 +40,9 @@ async def admin_dashboard(request: Request):
         "media_videos": media_videos,
         "update_msg": update_msg,
         "device_queue_manager": device_queue_manager,
-        "settings_checks": SETTINGS_CHECKS
+        "settings_checks": SETTINGS_CHECKS,
+        "upload_raw": count_files_recursive(UPLOADED_RAW_DIR),
+        "uploaded": count_files_recursive(UPLOADED_DIR),
     })
     return response
 
