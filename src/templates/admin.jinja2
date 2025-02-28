@@ -24,12 +24,15 @@
         In converting queue: {{ upload_raw }} | Uploaded and Converted: {{ uploaded }}
     </div>
     <div class="upload-convert-group">
-        <form id="upload-form" method="post" action="/admin/upload" enctype="multipart/form-data">
-            <label for="file-upload" class="btn btn-upload">Upload media from device</label>
+        <form method="post" action="/admin/upload" enctype="multipart/form-data" class="upload-form">
+            <label for="file-upload" class="file-label">Select media from device</label>
             <input id="file-upload" type="file" name="files" multiple accept="image/*,video/*" style="display: none;">
+            <noscript>
+                <button type="submit" class="btn btn-upload">Upload Files</button>
+            </noscript>
         </form>
         <form method="post" action="/admin/convert">
-            <button type="submit" class="btn btn-upload-submit">Convert Existing Files</button>
+            <button type="submit" class="btn btn-upload">Convert Existing Files</button>
         </form>
     </div>
 
