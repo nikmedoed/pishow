@@ -250,3 +250,10 @@ input[type="text"] {
 .btn-upload-submit:hover {
     background: #0056b3;
 }
+
+.upload-convert-group {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 20px;
+}

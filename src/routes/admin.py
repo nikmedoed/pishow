@@ -83,6 +83,19 @@ async def admin_device_settings(request: Request, device_id: str):
     })
 
 
+def start_conversion(request: Request) -> str:
+    try:
+        to_convert = count_files_recursive(UPLOADED_RAW_DIR)
+        port = str(request.url.port or "8000")
+        subprocess.Popen(
+            [sys.executable, "src/utils/converter.py", port],
+            start_new_session=True
+        )
+        return f"Converting {to_convert} files started." if to_convert else "Nothing to convert"
+    except Exception as e:
+        return f"Conversion error: {e}"
+
+
 @router.post("/upload")
 async def upload_files(request: Request, files: list[UploadFile] = File(...)):
     try:
@@ -90,15 +103,17 @@ async def upload_files(request: Request, files: list[UploadFile] = File(...)):
             destination = UPLOADED_RAW_DIR / file.filename
             with open(destination, "wb") as buffer:
                 shutil.copyfileobj(file.file, buffer)
-        port = str(request.url.port or "8000")
-        subprocess.Popen(
-            [sys.executable, "src/utils/converter.py", port],
-            start_new_session=True
-        )
-        message = "Files uploaded. Converting started."
+        conversion_message = start_conversion(request)
+        message = f"Files uploaded. {conversion_message}"
     except Exception as e:
-        message = f"Uploading error {e}"
+        message = f"Uploading error: {e}"
     request.session["update_msg"] = message
+    return RedirectResponse(url="/admin", status_code=303)
+
+
+@router.post("/convert")
+async def convert_existing_files(request: Request):
+    request.session["update_msg"] = start_conversion(request)
     return RedirectResponse(url="/admin", status_code=303)
 
 

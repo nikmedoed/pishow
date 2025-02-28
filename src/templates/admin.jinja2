@@ -23,12 +23,16 @@
     <div class="media-summary">
         In converting queue: {{ upload_raw }} | Uploaded and Converted: {{ uploaded }}
     </div>
-    <form method="post" action="/admin/upload" enctype="multipart/form-data" class="upload-form">
-        <label for="file-upload" class="btn btn-upload">Upload media from device</label>
-        <input id="file-upload" type="file" name="files" multiple accept="image/*,video/*" style="display: none;"
-               onchange="this.form.submit()">
-    </form>
-
+    <div class="upload-convert-group">
+        <form method="post" action="/admin/upload" enctype="multipart/form-data">
+            <label for="file-upload" class="btn btn-upload">Upload media from device</label>
+            <input id="file-upload" type="file" name="files" multiple accept="image/*,video/*" style="display: none;"
+                   onchange="this.form.submit()">
+        </form>
+        <form method="post" action="/admin/convert">
+            <button type="submit" class="btn btn-upload-submit">Convert Existing Files</button>
+        </form>
+    </div>
 
     <div class="list-label">Devices List</div>
     <div class="card-container">
