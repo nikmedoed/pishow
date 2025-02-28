@@ -3,3 +3,8 @@ fastapi
 pymediainfo
 python-dotenv
 jinja2
+python-multipart
+starlette-session
+pillow
+httpx
+pillow-heif

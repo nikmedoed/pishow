@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    {% if refresh_time %}
+        <meta http-equiv="refresh" content="{{ refresh_time }}">
+    {% endif %}
+    <title>Slideshow</title>
+    <link href="/static/old.css" rel="stylesheet"/>
+</head>
+<body>
+
+{% if is_video and dynamic_background %}
+    <video id="background-video" src="{{ file_url }}" autoplay muted loop playsinline webkit-playsinline></video>
+{% else %}
+    <div id="background"
+         style="background: url('{{ background_file_url }}') center center / cover no-repeat;"></div>
+{% endif %}
+
+{% if is_video %}
+    <video id="main-video" src="{{ file_url }}" controls muted loop autoplay playsinline webkit-playsinline></video>
+{% elif file_url %}
+    <img id="main-media" src="{{ file_url }}" alt="Main">
+{% endif %}
+<div class="controls">
+    <a href="/?refresh=false">Pause</a>
+    <a href="/">Next</a>
+    <a href="/go">Setting</a>
+</div>
+
+{% if file_name %}
+    <div class="file-name">{{ file_name }}</div>
+{% endif %}
+
+{% if counters_text %}
+    <div class="counters">{{ counters_text }}</div>
+{% endif %}
+
+{% if include_inline_video %}
+    <script src="/static/iphone-inline-video.min.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            var video = document.getElementById('main-video');
+            if (video) {
+                enableInlineVideo(video, {iPad: true});
+            }
+        });
+    </script>
+{% endif %}
+</body>
+</html>
