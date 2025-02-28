@@ -5,7 +5,7 @@ set -e
 cd "$(dirname "$0")"
 
 echo "Updating code..."
-git pull origin main
+git pull
 
 echo "Activating virtual environment..."
 source venv/bin/activate
