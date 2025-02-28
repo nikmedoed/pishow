@@ -28,7 +28,6 @@ class DeviceInfo:
     user_agent: str = ""
     ip_address: str = ""
     name: str = ""
-    huy: int = 13452345
 
     @property
     def device_name(self) -> str:
