@@ -1,4 +1,3 @@
-import os
 import shutil
 import subprocess
 import sys
@@ -7,20 +6,12 @@ from fastapi import APIRouter, Request, Form, UploadFile, File
 from starlette.responses import RedirectResponse, HTMLResponse
 
 from src.device_manager import SETTINGS_LIST
-from src.settings import device_queue_manager, templates, UPLOADED_RAW_DIR, UPLOADED_DIR, VIDEO_BACKGROUND_SUFFIX
+from src.settings import device_queue_manager, templates, UPLOADED_RAW_DIR, UPLOADED_DIR, CONVERT_LOCK_FILE
+from src.utils.files import count_files_recursive
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 SETTINGS_CHECKS = {**SETTINGS_LIST, "video_background": "Video Background"}
-
-
-def count_files_recursive(directory):
-    return sum(
-        1
-        for root, dirs, files in os.walk(directory)
-        for file in files
-        if not file.endswith(VIDEO_BACKGROUND_SUFFIX)
-    )
 
 
 @router.get("", response_class=HTMLResponse)
@@ -85,6 +76,8 @@ async def admin_device_settings(request: Request, device_id: str):
 
 def start_conversion(request: Request) -> str:
     try:
+        if CONVERT_LOCK_FILE.exists():
+            return "Converting in progress. All files in Queue."
         to_convert = count_files_recursive(UPLOADED_RAW_DIR)
         port = str(request.url.port or "8000")
         subprocess.Popen(

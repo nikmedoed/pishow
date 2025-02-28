@@ -18,8 +18,12 @@ UPLOADED_DIR = MEDIA_DIR / "uploaded"
 UPLOADED_RAW_DIR.mkdir(parents=True, exist_ok=True)
 UPLOADED_DIR.mkdir(parents=True, exist_ok=True)
 
+STORAGE_DIR = Path(__file__).resolve().parent.parent / "storage"
+STORAGE_DIR.mkdir(exist_ok=True)
+CONVERT_LOCK_FILE = STORAGE_DIR / "converter.lock"
+
 media_handler = MediaDict(MEDIA_DIR, VIDEO_BACKGROUND_SUFFIX, UPLOADED_RAW_DIR)
-device_queue_manager = DeviceQueueManager(media_handler)
+device_queue_manager = DeviceQueueManager(media_handler, STORAGE_DIR)
 
 TEMPLATES_DIR = Path(__file__).parent / "templates"
 templates = Jinja2Templates(directory=TEMPLATES_DIR)

@@ -1,5 +1,8 @@
+import os
 import sys
 from pathlib import Path
+
+from src.utils.files import get_capture_date, get_video_capture_date
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
@@ -12,7 +15,7 @@ from pathlib import Path
 import httpx
 from PIL import Image
 
-from src.settings import UPLOADED_DIR, UPLOADED_RAW_DIR
+from src.settings import UPLOADED_DIR, UPLOADED_RAW_DIR, CONVERT_LOCK_FILE
 
 # Register HEIF opener so that Pillow can read HEIC files.
 try:
@@ -24,67 +27,10 @@ except Exception as e:
     logging.warning("pillow-heif could not be registered: %s", e)
 
 logger = logging.getLogger("media converter")
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG if os.getenv("DEBUG", False) else logging.INFO)
 
 IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.heic', '.png', '.bmp', '.tiff', '.tif', '.webp']
 VIDEO_EXTENSIONS = ['.mp4', '.mov', '.avi', '.mkv']
-
-
-def get_capture_date(img: Image.Image) -> datetime.datetime:
-    """
-    Attempt to extract the capture date from the image's EXIF data.
-    Returns a datetime object if available, otherwise None.
-    """
-    try:
-        exif = img.getexif()
-        if exif:
-            # EXIF tag 36867 is DateTimeOriginal; fallback to tag 306 (DateTime)
-            dt_str = exif.get(36867) or exif.get(306)
-            if dt_str:
-                dt_str = dt_str.strip()
-                return datetime.datetime.strptime(dt_str, "%Y:%m:%d %H:%M:%S")
-    except Exception as e:
-        logger.warning("Failed to extract image capture date: %s", e)
-    return None
-
-
-def get_video_capture_date(input_path: Path) -> datetime.datetime:
-    """
-    Use ffprobe to extract the video's creation time from metadata.
-    Attempts to parse the ISO8601 string so that if a timezone offset is present it is preserved.
-    If no offset is found, assumes UTC.
-    """
-    try:
-        cmd = [
-            "ffprobe", "-v", "error",
-            "-select_streams", "v:0",
-            "-show_entries", "format_tags=creation_time",
-            "-of", "default=noprint_wrappers=1:nokey=1",
-            str(input_path)
-        ]
-        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)
-        creation_time = result.stdout.strip()
-        if creation_time:
-            # If the creation_time string ends with 'Z', it indicates UTC.
-            if creation_time.endswith("Z"):
-                creation_time = creation_time.rstrip("Z")
-                dt = datetime.datetime.fromisoformat(creation_time)
-                dt = dt.replace(tzinfo=datetime.timezone.utc)
-            else:
-                try:
-                    dt = datetime.datetime.fromisoformat(creation_time)
-                except ValueError:
-                    # Fallback: assume UTC if parsing fails
-                    try:
-                        dt = datetime.datetime.strptime(creation_time, "%Y-%m-%dT%H:%M:%S.%f")
-                    except ValueError:
-                        dt = datetime.datetime.strptime(creation_time, "%Y-%m-%dT%H:%M:%S")
-                    dt = dt.replace(tzinfo=datetime.timezone.utc)
-            # Convert to local timezone using the offset provided in metadata if any.
-            return dt.astimezone()
-    except Exception as e:
-        logger.warning("Failed to extract video capture date for %s: %s", input_path.name, e)
-    return None
 
 
 def get_new_filename(original_name: str, capture_date: datetime.datetime = None, ext: str = None) -> str:
@@ -98,6 +44,8 @@ def get_new_filename(original_name: str, capture_date: datetime.datetime = None,
     base = Path(original_name).stem
     if ext is None:
         ext = Path(original_name).suffix
+    if base.startswith(dt_str):
+        return f"{base}{ext}"
     return f"{dt_str}-{base}{ext}"
 
 
@@ -106,15 +54,15 @@ def convert_video(input_path: Path, output_path: Path):
     Convert a video file to MP4 using ffmpeg.
     Uses a medium preset and forces a maximum level of 4.0.
     """
+    logger.info(f"Converting video: {input_path.name}")
     cmd = [
-        "ffmpeg", "-loglevel", "error", "-i", str(input_path),
+        "ffmpeg", "-loglevel", "error", "-y", "-i", str(input_path),
         "-c:v", "libx264", "-preset", "medium", "-crf", "30",
         "-profile:v", "high", "-level:v", "4.0",
         "-pix_fmt", "yuv420p", "-movflags", "faststart",
         "-c:a", "aac", "-b:a", "128k", "-map_metadata", "-1",
         str(output_path)
     ]
-    logger.info("Converting video: %s", input_path.name)
     subprocess.run(cmd, check=True)
 
 
@@ -196,4 +144,27 @@ if __name__ == '__main__':
         port = sys.argv[1]
     else:
         port = "8000"
-    process_files(port)
+    try:
+        if CONVERT_LOCK_FILE.exists():
+            logger.debug(f"Convert file exist")
+            sys.exit(0)
+        CONVERT_LOCK_FILE.touch(exist_ok=False)
+        previous_files = set()
+        while True:
+            current_files = {
+                f.name
+                for f in UPLOADED_RAW_DIR.iterdir()
+                if f.is_file() and f.name != CONVERT_LOCK_FILE.name
+            }
+            if not current_files:
+                break
+            if previous_files and current_files == previous_files:
+                logger.info("Нет прогресса в конвертации. Завершаем цикл.")
+                break
+            previous_files = current_files
+            process_files(port)
+    except Exception as e:
+        logger.error(f"Startup error {e}")
+    finally:
+        if CONVERT_LOCK_FILE.exists():
+            CONVERT_LOCK_FILE.unlink()

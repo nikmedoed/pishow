@@ -44,7 +44,6 @@ class DeviceQueueManager:
         """
         self.media_dict = media_dict
         self.storage_dir = storage_dir
-        self.storage_dir.mkdir(exist_ok=True)
         self.device_queues = {}
         self.devices_info_file = self.storage_dir / "devices.pkl"
         self.devices_info = self._load_devices_info()

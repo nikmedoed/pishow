@@ -1,7 +1,7 @@
 import logging
 import os
 import shutil
-from urllib.parse import unquote, quote
+from urllib.parse import quote
 
 from src.settings import MEDIA_DIR, VIDEO_BACKGROUND_SUFFIX, media_handler, MEDIA_PATH
 from src.utils.gradient import get_random_svg_gradient
