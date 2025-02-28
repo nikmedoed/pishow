@@ -24,14 +24,18 @@
         In converting queue: {{ upload_raw }} | Uploaded and Converted: {{ uploaded }}
     </div>
     <div class="upload-convert-group">
-        <form method="post" action="/admin/upload" enctype="multipart/form-data">
+        <form id="upload-form" method="post" action="/admin/upload" enctype="multipart/form-data">
             <label for="file-upload" class="btn btn-upload">Upload media from device</label>
-            <input id="file-upload" type="file" name="files" multiple accept="image/*,video/*" style="display: none;"
-                   onchange="this.form.submit()">
+            <input id="file-upload" type="file" name="files" multiple accept="image/*,video/*" style="display: none;">
         </form>
         <form method="post" action="/admin/convert">
             <button type="submit" class="btn btn-upload-submit">Convert Existing Files</button>
         </form>
+    </div>
+
+    <div id="progress-container" style="display:none; margin-top: 10px;">
+        <progress id="upload-progress" max="100" value="0" style="width: 100%;"></progress>
+        <span id="progress-text">0%</span>
     </div>
 
     <div class="list-label">Devices List</div>
@@ -73,5 +77,6 @@
 
 </div>
 <a href="/" class="admin-link">Start show</a>
+<script src="/static/upload.js"></script>
 </body>
 </html>
