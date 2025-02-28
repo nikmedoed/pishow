@@ -1,19 +1,34 @@
 import importlib
 import logging
 import os
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
 from src.settings import MEDIA_DIR, MEDIA_PATH
+from src.utils.watchdg import observer_thread, observer
 
 logging.basicConfig(
     level=logging.DEBUG if os.getenv("DEBUG", False) else logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s",
 )
 
-app = FastAPI()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: запускаем наблюдатель в отдельном потоке
+    observer_thread.start()
+    logging.info("Media observer started.")
+    yield
+    # Shutdown: останавливаем наблюдатель
+    observer.stop()
+    observer.join()
+    logging.info("Media observer stopped.")
+
+
+app = FastAPI(lifespan=lifespan)
 app.add_middleware(SessionMiddleware, secret_key="your-secret-key")
 app.mount(MEDIA_PATH, StaticFiles(directory=str(MEDIA_DIR)), name="media")
 app.mount("/static", StaticFiles(directory="src/static"), name="static")

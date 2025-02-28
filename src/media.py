@@ -84,7 +84,7 @@ class MediaDict(dict):
 
         self.photo_keys = tuple(key for key, media in self.items() if not media.is_video)
         self.video_keys = tuple(key for key, media in self.items() if media.is_video)
-
+        logger.debug(f"New files {len(new_keys)} total {len(self)}")
         return new_keys
 
     def __getitem__(self, key):
