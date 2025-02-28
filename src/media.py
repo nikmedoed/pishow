@@ -37,7 +37,7 @@ class MediaDict(dict):
 
     def __init__(self, media_dir: Path,
                  background_suffix: str = None,
-                 uploaded_media_raw: str = None,
+                 uploaded_media_raw: Path = None,
                  *args, **kwargs):
         """
         Initialize the MediaDict.

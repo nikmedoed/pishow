@@ -107,7 +107,7 @@ def convert_video(input_path: Path, output_path: Path):
     Uses a medium preset and forces a maximum level of 4.0.
     """
     cmd = [
-        "ffmpeg", "-i", str(input_path),
+        "ffmpeg", "-loglevel", "error", "-i", str(input_path),
         "-c:v", "libx264", "-preset", "medium", "-crf", "30",
         "-profile:v", "high", "-level:v", "4.0",
         "-pix_fmt", "yuv420p", "-movflags", "faststart",
