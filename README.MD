@@ -48,6 +48,31 @@ support.
 
 ---
 
+## Why Pishow?
+
+Many modern slideshow solutions rely on JavaScript and heavy frameworks that can cause compatibility issues on older
+devices. Pishow offers a minimalist, resource-efficient alternative by using:
+
+- **No Scripts:** Pure HTML with meta refresh.
+- **Customizable, Device-Specific Settings:** Each device can be tailored to its own capabilities.
+- **Low Resource Consumption:** Designed to run smoothly on legacy hardware.
+
+---
+
+## 💖 Support my work
+
+<table align="center" border="0" cellpadding="0" cellspacing="0">
+  <tr>
+    <td><a href="https://ko-fi.com/nikmedoed"><img src="https://img.shields.io/badge/Ko--fi-donate-FF5E5B?logo=kofi" alt="Ko-fi" border="0"></a></td>
+    <td><a href="https://boosty.to/nikmedoed/donate"><img src="https://img.shields.io/badge/Boosty-donate-FB400B?logo=boosty" alt="Boosty" border="0"></a></td>
+    <td><a href="https://paypal.me/etonikmedoed"><img src="https://img.shields.io/badge/PayPal-donate-00457C?logo=paypal" alt="PayPal" border="0"></a></td>
+    <td><a href="https://yoomoney.ru/to/4100119049495394"><img src="https://img.shields.io/badge/YooMoney-donate-8b3ffd?logo=yoomoney" alt="YooMoney" border="0"></a></td>
+    <td><a href="https://github.com/nikmedoed#-support-my-work"><img src="https://img.shields.io/badge/Other-more-lightgrey?logo=github" alt="Other" border="0"></a></td>
+  </tr>
+</table>
+
+---
+
 ## Supported Formats & Media Recommendations
 
 *Compatibility depends on your device’s codecs and supported formats.*
@@ -171,17 +196,6 @@ Pishow includes an update script to simplify the update process. Simply run:
 ```
 
 This script will pull the latest changes from the repository and restart the service if necessary.
-
----
-
-## Why Pishow?
-
-Many modern slideshow solutions rely on JavaScript and heavy frameworks that can cause compatibility issues on older
-devices. Pishow offers a minimalist, resource-efficient alternative by using:
-
-- **No Scripts:** Pure HTML with meta refresh.
-- **Customizable, Device-Specific Settings:** Each device can be tailored to its own capabilities.
-- **Low Resource Consumption:** Designed to run smoothly on legacy hardware.
 
 ---
 
