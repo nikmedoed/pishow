@@ -182,3 +182,4 @@ dist-ssr
 frontend/index.html
 /gallery
 *.pkl
+uv.lock
