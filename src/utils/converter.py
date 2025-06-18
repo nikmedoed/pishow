@@ -2,15 +2,13 @@ import os
 import sys
 from pathlib import Path
 
-from src.utils.files import get_capture_date, get_video_capture_date
-
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
+from src.utils.files import get_capture_date, get_video_capture_date
 
 import datetime
 import logging
 import subprocess
-import sys
-from pathlib import Path
 
 import httpx
 from PIL import Image
