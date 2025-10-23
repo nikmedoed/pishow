@@ -125,7 +125,7 @@
 
                     <div class="settings-list">
                         {% for key, label in settings_checks.items() %}
-                            {% if info[key] %}
+                            {% if info | attr(key) %}
                                 <span>{{ label }}</span>
                             {% endif %}
                         {% endfor %}
