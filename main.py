@@ -8,6 +8,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
 from src.settings import MEDIA_DIR, MEDIA_PATH
+from src.utils.converter_watchdog import ConversionWatchdog
 from src.utils.watchdg import observer_thread, observer
 
 logging.basicConfig(
@@ -21,11 +22,14 @@ async def lifespan(app: FastAPI):
     # Startup: запускаем наблюдатель в отдельном потоке
     observer_thread.start()
     logging.info("Media observer started.")
+    conversion_watchdog = ConversionWatchdog()
+    conversion_watchdog.start()
     yield
     # Shutdown: останавливаем наблюдатель
     observer.stop()
     observer.join()
     logging.info("Media observer stopped.")
+    conversion_watchdog.stop()
 
 
 app = FastAPI(lifespan=lifespan)

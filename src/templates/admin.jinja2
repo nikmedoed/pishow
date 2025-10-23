@@ -16,6 +16,74 @@
     {% if update_msg %}
         <div class="update-msg">{{ update_msg }}</div>
     {% endif %}
+
+    {% set current = conversion_state.current or {} %}
+    {% set status = conversion_state.status or 'idle' %}
+    {% set total = conversion_state.total or 0 %}
+    {% set processed = conversion_state.processed or 0 %}
+    {% set processed_with_current = processed + (1 if current else 0) %}
+    {% set remaining_diff = total - processed %}
+    {% set remaining = conversion_state.remaining if conversion_state.remaining is not none else (remaining_diff if remaining_diff > 0 else 0) %}
+    {% set overall_percent = conversion_state.percent or 0 %}
+    {% set file_percent = current.percent if current and current.percent is not none else None %}
+    {% set eta_seconds = current.eta_seconds if current and current.eta_seconds is not none else None %}
+
+    <div id="conversion-wrapper" class="conversion-wrapper" data-active="{{ 'true' if conversion_active else 'false' }}" {% if not conversion_active %}style="display:none;"{% endif %}>
+        <div class="conversion-card" data-status="{{ status }}">
+            <div class="conversion-card-header">
+                <div class="conversion-card-title">Converter</div>
+                <div class="conversion-card-actions">
+                    <span id="conversion-status-label" class="conversion-status conversion-status-{{ status }}">{{ status|capitalize }}</span>
+                    {% if conversion_active %}
+                        <form id="conversion-restart-form" method="post" action="/admin/conversion/restart">
+                            <button type="submit" class="btn btn-restart">Restart</button>
+                        </form>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="conversion-progress">
+                <div class="conversion-progress-bar">
+                    <div id="conversion-progress-fill" style="width: {{ overall_percent }}%"></div>
+                </div>
+            </div>
+            <div class="conversion-row conversion-summary">
+                <div class="conversion-summary-left" id="conversion-counts">{{ processed_with_current }}/{{ total }} • осталось {{ remaining }}</div>
+                <div class="conversion-summary-right">
+                    <span id="conversion-progress-overall">{{ overall_percent|round(1) }}%</span>
+                    <span class="conversion-divider">•</span>
+                    <span id="conversion-progress-file">{% if file_percent is not none %}файл {{ file_percent|round(1) }}%{% else %}файл —{% endif %}</span>
+                    <span class="conversion-divider">•</span>
+                    <span id="conversion-eta">
+                        {% if eta_seconds is not none %}
+                            осталось {{ eta_seconds|round(1) }} c
+                        {% else %}
+                            осталось —
+                        {% endif %}
+                    </span>
+                </div>
+            </div>
+            <div class="conversion-row conversion-updated">
+                <span class="conversion-label">Обновлено</span>
+                <span class="conversion-updated-value" id="conversion-updated">{{ conversion_state.last_update or '—' }}</span>
+            </div>
+            <div class="conversion-row conversion-current">
+                <span class="conversion-label">Текущий файл</span>
+                <span class="conversion-current-value" id="conversion-current-file">{{ current.file or '—' }}</span>
+            </div>
+            <div class="conversion-errors" id="conversion-errors">
+                {% for error in conversion_state.errors %}
+                    <div class="conversion-error-row">
+                        <div class="conversion-error-header">
+                            <span class="conversion-error-time">{{ error.timestamp }}</span>
+                            <span class="conversion-error-file">{{ error.file }}</span>
+                        </div>
+                        <div class="conversion-error-message">{{ error.message }}</div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
     <form method="post" action="/admin/update_content" style="text-align: center; margin-bottom: 20px;">
         <button type="submit" class="btn btn-edit">Update Media List</button>
     </form>
@@ -81,5 +149,6 @@
 </div>
 <a href="/" class="admin-link">Start show</a>
 <script src="/static/upload.js"></script>
+<script src="/static/converter-status.js"></script>
 </body>
 </html>

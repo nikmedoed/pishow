@@ -1,12 +1,16 @@
 import shutil
-import subprocess
-import sys
-
 from fastapi import APIRouter, Request, Form, UploadFile, File
+from fastapi.responses import JSONResponse
 from starlette.responses import RedirectResponse, HTMLResponse
 
 from src.device_manager import SETTINGS_LIST
-from src.settings import device_queue_manager, templates, UPLOADED_RAW_DIR, UPLOADED_DIR, CONVERT_LOCK_FILE
+from src.settings import device_queue_manager, templates, UPLOADED_RAW_DIR, UPLOADED_DIR
+from src.utils.converter_control import (
+    get_conversion_status,
+    is_conversion_running,
+    request_restart,
+    start_conversion,
+)
 from src.utils.files import count_files_recursive
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -23,6 +27,7 @@ async def admin_dashboard(request: Request):
     media_videos = len(md.video_keys) if md.video_keys else 0
 
     update_msg = request.session.pop("update_msg", None)
+    conversion_state = get_conversion_status()
     response = templates.TemplateResponse("admin.jinja2", {
         "request": request,
         "devices": devices,
@@ -34,6 +39,8 @@ async def admin_dashboard(request: Request):
         "settings_checks": SETTINGS_CHECKS,
         "upload_raw": count_files_recursive(UPLOADED_RAW_DIR),
         "uploaded": count_files_recursive(UPLOADED_DIR),
+        "conversion_state": conversion_state,
+        "conversion_active": is_conversion_running() or conversion_state.get("status") in {"running", "scheduled", "restarting"},
     })
     return response
 
@@ -74,21 +81,6 @@ async def admin_device_settings(request: Request, device_id: str):
     })
 
 
-def start_conversion(request: Request) -> str:
-    try:
-        if CONVERT_LOCK_FILE.exists():
-            return "Converting in progress. All files in Queue."
-        to_convert = count_files_recursive(UPLOADED_RAW_DIR)
-        port = str(request.url.port or "8000")
-        subprocess.Popen(
-            [sys.executable, "src/utils/converter.py", port],
-            start_new_session=True
-        )
-        return f"Converting {to_convert} files started." if to_convert else "Nothing to convert"
-    except Exception as e:
-        return f"Conversion error: {e}"
-
-
 @router.post("/upload")
 async def upload_files(request: Request, files: list[UploadFile] = File(...)):
     try:
@@ -96,7 +88,8 @@ async def upload_files(request: Request, files: list[UploadFile] = File(...)):
             destination = UPLOADED_RAW_DIR / file.filename
             with open(destination, "wb") as buffer:
                 shutil.copyfileobj(file.file, buffer)
-        conversion_message = start_conversion(request)
+        port = str(request.url.port or "8000")
+        conversion_message = start_conversion(port)
         message = f"Files uploaded. {conversion_message}"
     except Exception as e:
         message = f"Uploading error: {e}"
@@ -106,8 +99,24 @@ async def upload_files(request: Request, files: list[UploadFile] = File(...)):
 
 @router.post("/convert")
 async def convert_existing_files(request: Request):
-    request.session["update_msg"] = start_conversion(request)
+    port = str(request.url.port or "8000")
+    request.session["update_msg"] = start_conversion(port)
     return RedirectResponse(url="/admin", status_code=303)
+
+
+@router.post("/conversion/restart")
+async def restart_conversion(request: Request):
+    if request_restart():
+        message = "Conversion restart requested."
+    else:
+        message = "Converter is not active."
+    request.session["update_msg"] = message
+    return RedirectResponse(url="/admin", status_code=303)
+
+
+@router.get("/conversion/status")
+async def conversion_status() -> JSONResponse:
+    return JSONResponse(get_conversion_status())
 
 
 @router.post("/{device_id}")

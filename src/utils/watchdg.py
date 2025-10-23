@@ -20,14 +20,16 @@ class MediaFolderHandler(FileSystemEventHandler):
         return False
 
     def on_created(self, event):
-        logger.debug("Watchdog on_created")
-        if not event.is_directory and not CONVERT_LOCK_FILE.exists():
-            self.media_dict.sync_files()
+        if event.is_directory or self._should_ignore(event) or CONVERT_LOCK_FILE.exists():
+            return
+        logger.debug("Watchdog syncing after create: %s", event.src_path)
+        self.media_dict.sync_files()
 
     def on_deleted(self, event):
-        logger.debug("Watchdog on_deleted")
-        if not event.is_directory and not CONVERT_LOCK_FILE.exists():
-            self.media_dict.sync_files()
+        if event.is_directory or self._should_ignore(event) or CONVERT_LOCK_FILE.exists():
+            return
+        logger.debug("Watchdog syncing after delete: %s", event.src_path)
+        self.media_dict.sync_files()
 
 
 event_handler = MediaFolderHandler(media_handler)

@@ -183,3 +183,4 @@ frontend/index.html
 /gallery
 *.pkl
 uv.lock
+storage/

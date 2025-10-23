@@ -261,6 +261,169 @@ input[type="text"] {
     align-items: center;
 }
 
+.conversion-wrapper {
+    margin-bottom: 20px;
+}
+
+.conversion-card {
+    background: #ffffff;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 16px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+.conversion-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.conversion-card-title {
+    font-size: 1.2em;
+    font-weight: bold;
+}
+
+.conversion-card-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.conversion-status {
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.8em;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.conversion-status-running {
+    background: #e0f7ef;
+    color: #198754;
+}
+
+.conversion-status-scheduled {
+    background: #e7f1ff;
+    color: #0d6efd;
+}
+
+.conversion-status-restarting {
+    background: #fff3cd;
+    color: #d39e00;
+}
+
+.conversion-status-idle {
+    background: #f8f9fa;
+    color: #6c757d;
+}
+
+.btn-restart {
+    background-color: #6f42c1;
+}
+
+.conversion-progress {
+    margin-bottom: 12px;
+}
+
+.conversion-progress-bar {
+    background: #f0f0f0;
+    border-radius: 6px;
+    overflow: hidden;
+    height: 12px;
+}
+
+#conversion-progress-fill {
+    background: linear-gradient(90deg, #28a745 0%, #82d176 100%);
+    height: 100%;
+    width: 0;
+    transition: width 0.4s ease;
+}
+
+.conversion-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.9em;
+    margin-bottom: 6px;
+    gap: 12px;
+}
+
+.conversion-row.conversion-summary {
+    align-items: center;
+}
+
+.conversion-summary-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.conversion-divider {
+    color: #adb5bd;
+}
+
+.conversion-row.conversion-updated,
+.conversion-row.conversion-current {
+    justify-content: flex-start;
+    align-items: baseline;
+    gap: 6px;
+}
+
+.conversion-label {
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.conversion-updated-value,
+.conversion-current-value {
+    overflow-wrap: anywhere;
+}
+
+.conversion-errors {
+    margin-top: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 160px;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+.conversion-error-row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.85em;
+    background: #f8f9fa;
+    border-radius: 4px;
+    padding: 6px 8px;
+}
+
+.conversion-error-header {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: baseline;
+}
+
+.conversion-error-time {
+    color: #6c757d;
+    font-weight: 600;
+}
+
+.conversion-error-file {
+    font-weight: 600;
+    overflow-wrap: anywhere;
+}
+
+.conversion-error-message {
+    color: #b02a37;
+    overflow-wrap: anywhere;
+}
+
 @media (max-width: 600px) {
     .card {
         flex-direction: column;
