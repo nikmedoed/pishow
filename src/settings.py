@@ -21,8 +21,6 @@ UPLOADED_DIR.mkdir(parents=True, exist_ok=True)
 STORAGE_DIR = Path(__file__).resolve().parent.parent / "storage"
 STORAGE_DIR.mkdir(exist_ok=True)
 CONVERT_LOCK_FILE = STORAGE_DIR / "converter.lock"
-CONVERTER_STATE_FILE = STORAGE_DIR / "converter_state.json"
-CONVERTER_QUEUE_FILE = STORAGE_DIR / "converter_queue.json"
 CONVERTER_THROTTLE_SECONDS = int(os.getenv("CONVERTER_THROTTLE_SECONDS", "30"))
 
 media_handler = MediaDict(MEDIA_DIR, VIDEO_BACKGROUND_SUFFIX, UPLOADED_RAW_DIR)

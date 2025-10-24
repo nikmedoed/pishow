@@ -1,9 +1,8 @@
+import errno
 import json
 import logging
 import os
 import signal
-import subprocess
-import sys
 import time
 from datetime import datetime
 from threading import Lock, Thread
@@ -13,27 +12,19 @@ from src.settings import (
     CONVERT_LOCK_FILE,
     CONVERTER_THROTTLE_SECONDS,
 )
-from src.utils.conversion_state import load_state, save_state
+from src.utils.conversion_state import get_state, update_state
+from src.utils.converter import Converter, STOP_EVENT
 from src.utils.converter_queue import ConversionQueue
 
 logger = logging.getLogger("media converter")
 
 _PROCESS_LOCK = Lock()
-_RUNNING_PROCESS: Optional[subprocess.Popen] = None
+_CONVERTER_THREAD: Optional[Thread] = None
 
 
-def _tracked_process() -> Optional[subprocess.Popen]:
-    """Return the currently tracked converter process if it is still running."""
-
-    global _RUNNING_PROCESS
-    process = _RUNNING_PROCESS
-    if process is None:
-        return None
-    if process.poll() is None:
-        return process
-    # The process has exited; clear the cached handle.
-    _RUNNING_PROCESS = None
-    return None
+def _thread_is_running() -> bool:
+    thread = _CONVERTER_THREAD
+    return thread is not None and thread.is_alive()
 
 
 def _read_lock_payload() -> Optional[dict]:
@@ -56,6 +47,13 @@ def _pid_is_running(pid: int) -> bool:
         return False
     except PermissionError:
         return True
+    except OSError as exc:
+        # Windows raises "invalid parameter" (WinError 87 / errno.EINVAL)
+        # when os.kill receives signal 0. Treat it as a non-running process so
+        # the stale lock can be cleared without crashing the admin dashboard.
+        if exc.errno == errno.EINVAL or getattr(exc, "winerror", None) == 87:
+            return False
+        raise
     else:
         return True
 
@@ -64,9 +62,9 @@ def _clean_stale_lock() -> None:
     if CONVERT_LOCK_FILE.exists():
         logger.warning("Removing stale converter lock file.")
         CONVERT_LOCK_FILE.unlink(missing_ok=True)
-    state = load_state()
+    state = get_state()
     state.update({"status": "idle", "current": None})
-    save_state(state)
+    update_state(state)
 
 
 def _active_pid() -> Optional[int]:
@@ -82,6 +80,31 @@ def _active_pid() -> Optional[int]:
     return None
 
 
+def _write_lock_file() -> None:
+    payload = {
+        "pid": os.getpid(),
+        "started": datetime.now().astimezone().isoformat(),
+    }
+    try:
+        with CONVERT_LOCK_FILE.open("x", encoding="utf-8") as handle:
+            json.dump(payload, handle)
+    except FileExistsError:
+        try:
+            with CONVERT_LOCK_FILE.open("w", encoding="utf-8") as handle:
+                json.dump(payload, handle)
+        except OSError as exc:
+            logger.warning("Unable to refresh converter lock file: %s", exc)
+    except OSError as exc:
+        logger.warning("Unable to create converter lock file: %s", exc)
+
+
+def _remove_lock_file() -> None:
+    try:
+        CONVERT_LOCK_FILE.unlink(missing_ok=True)
+    except OSError as exc:
+        logger.warning("Unable to remove converter lock file: %s", exc)
+
+
 def enqueue_new_files() -> int:
     queue = ConversionQueue()
     pending = len(queue.items)
@@ -91,19 +114,22 @@ def enqueue_new_files() -> int:
 
 
 def is_conversion_running() -> bool:
-    if _tracked_process() is not None:
+    if _thread_is_running():
         return True
     return _active_pid() is not None
 
 
 def start_conversion(port: Optional[str] = None) -> str:
     with _PROCESS_LOCK:
-        if _tracked_process() is not None:
+        if _thread_is_running():
             return "Conversion already running."
+        if _active_pid() is not None:
+            return "Conversion already running."
+
         queue = ConversionQueue()
         pending = len(queue.items)
         if pending == 0:
-            save_state(
+            update_state(
                 {
                     "status": "idle",
                     "total": 0,
@@ -114,29 +140,25 @@ def start_conversion(port: Optional[str] = None) -> str:
                 }
             )
             return "Nothing to convert"
-        cmd = [sys.executable, "src/utils/converter.py"]
-        if port:
-            cmd.append(port)
-        try:
-            process = subprocess.Popen(cmd, start_new_session=True)
-        except OSError as exc:
-            logger.error("Failed to launch converter: %s", exc)
-            return f"Failed to launch converter: {exc}"
 
-        def _wait_for_exit(proc: subprocess.Popen) -> None:
+        converter = Converter(port or "8000")
+
+        def _run_converter() -> None:
             try:
-                proc.wait()
+                _write_lock_file()
+                converter.run()
             finally:
+                _remove_lock_file()
                 with _PROCESS_LOCK:
-                    global _RUNNING_PROCESS
-                    if _RUNNING_PROCESS is proc:
-                        _RUNNING_PROCESS = None
+                    global _CONVERTER_THREAD
+                    _CONVERTER_THREAD = None
 
-        global _RUNNING_PROCESS
-        _RUNNING_PROCESS = process
-        Thread(target=_wait_for_exit, args=(process,), daemon=True).start()
+        thread = Thread(target=_run_converter, daemon=True)
+        thread.start()
+        global _CONVERTER_THREAD
+        _CONVERTER_THREAD = thread
 
-    state = load_state()
+    state = get_state()
     state.update(
         {
             "status": "scheduled",
@@ -147,31 +169,22 @@ def start_conversion(port: Optional[str] = None) -> str:
             "current": None,
         }
     )
-    save_state(state)
+    update_state(state)
     return f"Conversion started for {pending} files."
 
 
 def request_restart() -> bool:
     with _PROCESS_LOCK:
-        process = _tracked_process()
-    signal_to_send = getattr(signal, "SIGUSR1", None) or signal.SIGTERM
-    if process is not None:
-        try:
-            process.send_signal(signal_to_send)
-        except ProcessLookupError:
-            _tracked_process()
-            return False
-        except PermissionError:
-            logger.warning("Insufficient permissions to signal converter process")
-            return False
-        except AttributeError:  # pragma: no cover - defensive fallback
-            process.terminate()
-        state = load_state()
+        thread = _CONVERTER_THREAD if _thread_is_running() else None
+
+    if thread is not None:
+        state = get_state()
         state["status"] = "restarting"
-        save_state(state)
-        time.sleep(0.1)
+        update_state(state)
+        STOP_EVENT.set()
         return True
 
+    signal_to_send = getattr(signal, "SIGUSR1", None) or signal.SIGTERM
     pid = _active_pid()
     if pid is None:
         return False
@@ -187,15 +200,25 @@ def request_restart() -> bool:
     except PermissionError:
         logger.warning("Insufficient permissions to signal converter process %s", pid)
         return False
-    state = load_state()
+    state = get_state()
     state["status"] = "restarting"
-    save_state(state)
+    update_state(state)
     time.sleep(0.1)
     return True
 
 
+def _initialize_lock_state() -> None:
+    try:
+        _active_pid()
+    except Exception as exc:  # pragma: no cover - defensive logging only
+        logger.debug("Converter lock validation failed: %s", exc)
+
+
+_initialize_lock_state()
+
+
 def get_conversion_status() -> dict:
-    state = load_state()
+    state = get_state()
     throttle = max(CONVERTER_THROTTLE_SECONDS, 0)
     state.setdefault("throttle_seconds", throttle)
     last_update = state.get("last_update")

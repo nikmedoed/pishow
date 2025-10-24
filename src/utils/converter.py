@@ -5,6 +5,7 @@ import re
 import signal
 import subprocess
 import sys
+from copy import deepcopy
 from datetime import datetime
 from pathlib import Path
 from threading import Event
@@ -16,7 +17,7 @@ import httpx
 from PIL import Image
 
 from src.settings import CONVERT_LOCK_FILE, UPLOADED_DIR, UPLOADED_RAW_DIR
-from src.utils.conversion_state import reset_state, save_state
+from src.utils.conversion_state import update_state
 from src.utils.converter_queue import ConversionQueue, QueueItem
 from src.utils.files import get_capture_date, get_video_capture_date
 
@@ -50,9 +51,11 @@ def _configure_logging() -> None:
     else:
         logger.propagate = True
 
-    pillow_level = logging.DEBUG if debug_enabled else logging.INFO
+    pillow_level = logging.INFO if debug_enabled else logging.WARNING
     for name in ("PIL", "PIL.TiffImagePlugin"):
-        logging.getLogger(name).setLevel(pillow_level)
+        pillow_logger = logging.getLogger(name)
+        pillow_logger.setLevel(pillow_level)
+        pillow_logger.propagate = False
 
 
 _configure_logging()
@@ -172,6 +175,7 @@ class Converter:
         self.processed = 0
         self.errors: List[Dict[str, str]] = []
         self.current: Optional[QueueItem] = None
+        self._last_state_payload: Optional[Dict[str, object]] = None
 
     @staticmethod
     def _check_stop(process: Optional[subprocess.Popen] = None) -> None:
@@ -203,11 +207,23 @@ class Converter:
             "remaining": pending,
             "percent": percent,
             "current": current,
-            "errors": self.errors,
+            "errors": [dict(error) for error in self.errors],
         }
 
-    def _save_state(self, status: str, current: Optional[Dict[str, object]]) -> None:
-        save_state(self._state_payload(status, current))
+    def _publish_state(self, payload: Dict[str, object], *, force: bool = False) -> None:
+        if not force and self._last_state_payload == payload:
+            return
+        self._last_state_payload = deepcopy(payload)
+        update_state(payload)
+
+    def _set_state(
+        self,
+        status: str,
+        current: Optional[Dict[str, object]],
+        *,
+        force: bool = False,
+    ) -> None:
+        self._publish_state(self._state_payload(status, current), force=force)
 
     def _remember_error(self, item: QueueItem, message: str) -> None:
         entry = {
@@ -280,7 +296,7 @@ class Converter:
         if duration is not None and duration <= 0:
             duration = None
         current = self._current_payload(item, percent=0.0, eta=duration, duration=duration)
-        self._save_state("running", current)
+        self._set_state("running", current, force=True)
         cmd = [
             "ffmpeg",
             "-y",
@@ -333,7 +349,7 @@ class Converter:
                 last_percent = max(0.0, min((current_seconds / duration) * 100.0, 100.0))
                 eta = max(duration - current_seconds, 0.0)
                 progress = self._current_payload(item, percent=last_percent, eta=eta, duration=duration)
-                self._save_state("running", progress)
+                self._set_state("running", progress)
         except StopRequested:
             if output_path.exists():
                 output_path.unlink(missing_ok=True)
@@ -356,7 +372,7 @@ class Converter:
                 output_path.unlink(missing_ok=True)
             raise RuntimeError(f"ffmpeg exited with code {return_code}: {stderr}")
         final_payload = self._current_payload(item, percent=100.0, eta=0.0, duration=duration)
-        self._save_state("running", final_payload)
+        self._set_state("running", final_payload, force=True)
         _remove_error_log(path)
         path.unlink(missing_ok=True)
         logger.info("Converted video %s -> %s", item.relative_path, output_name)
@@ -368,7 +384,7 @@ class Converter:
         logger.info("Processing %s", item.relative_path)
         self.current = item
         current_payload = self._current_payload(item, percent=0.0)
-        self._save_state("running", current_payload)
+        self._set_state("running", current_payload, force=True)
         try:
             if item.file_type == "video":
                 self._convert_video(item)
@@ -389,11 +405,11 @@ class Converter:
     def run(self) -> None:
         self.queue.refresh_from_disk()
         if not len(self.queue):
-            reset_state()
+            self._set_state("idle", None, force=True)
             logger.info("No files to convert.")
             return
         STOP_EVENT.clear()
-        self._save_state("running", None)
+        self._set_state("running", None, force=True)
         try:
             while not STOP_EVENT.is_set():
                 if not len(self.queue):
@@ -412,20 +428,20 @@ class Converter:
                     logger.exception("Error processing %s", item.relative_path)
                     _write_error_log(item.absolute_path, str(exc))
                     self._remember_error(item, str(exc))
+                    self._set_state("running", None, force=True)
                 else:
                     self.processed += 1
                 finally:
-                    self._save_state("running", None)
+                    self._set_state("running", None)
                     self.queue.refresh_from_disk()
         except StopRequested:
             logger.info("Stop requested. Leaving remaining files in the queue.")
             if self.current is not None:
                 self.queue.push_front(self.current)
-            self._save_state("restarting", None)
+            self._set_state("restarting", None, force=True)
         finally:
             self.queue.refresh_from_disk()
-            final_state = self._state_payload("idle", None)
-            save_state(final_state)
+            self._set_state("idle", None, force=True)
             logger.info("Conversion finished. Processed %s files", self.processed)
             self._notify_server()
 
