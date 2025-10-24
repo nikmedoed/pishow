@@ -1,49 +1,87 @@
+import json
+import logging
 import os
 import re
-import shutil
 import signal
+import subprocess
 import sys
-import time
-import traceback
-from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+from threading import Event
 from typing import Dict, List, Optional
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-import logging
-import subprocess
-
 import httpx
 from PIL import Image
 
-from src.settings import (
-    CONVERT_LOCK_FILE,
-    CONVERTER_RESTART_FILE,
-    UPLOADED_DIR,
-    UPLOADED_RAW_DIR,
-)
+from src.settings import CONVERT_LOCK_FILE, UPLOADED_DIR, UPLOADED_RAW_DIR
 from src.utils.conversion_state import reset_state, save_state
 from src.utils.converter_queue import ConversionQueue, QueueItem
 from src.utils.files import get_capture_date, get_video_capture_date
 
-try:
+try:  # pragma: no cover - optional dependency
     from pillow_heif import register_heif_opener
 
     register_heif_opener()
-    logging.info("pillow-heif registered successfully")
-except Exception as exc:  # pragma: no cover - optional dependency
-    logging.warning("pillow-heif could not be registered: %s", exc)
+except Exception:  # pragma: no cover - optional dependency
+    pass
 
 logger = logging.getLogger("media converter")
-logging.basicConfig(level=logging.DEBUG if os.getenv("DEBUG", False) else logging.INFO)
-
-MAX_ATTEMPTS_PER_FILE = 3
 
 
-class RestartRequested(Exception):
-    """Raised when a manual restart is requested."""
+def _debug_enabled() -> bool:
+    value = os.getenv("DEBUG")
+    if value is None:
+        return False
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _configure_logging() -> None:
+    debug_enabled = _debug_enabled()
+    logger.setLevel(logging.DEBUG if debug_enabled else logging.INFO)
+
+    root_logger = logging.getLogger()
+    if not root_logger.handlers:
+        handler = logging.StreamHandler()
+        handler.setFormatter(logging.Formatter("%(levelname)s:%(name)s:%(message)s"))
+        logger.addHandler(handler)
+        logger.propagate = False
+    else:
+        logger.propagate = True
+
+    pillow_level = logging.DEBUG if debug_enabled else logging.INFO
+    for name in ("PIL", "PIL.TiffImagePlugin"):
+        logging.getLogger(name).setLevel(pillow_level)
+
+
+_configure_logging()
+
+STOP_EVENT = Event()
+
+
+def _handle_signal(signum, _frame) -> None:  # pragma: no cover - signal handler
+    if not STOP_EVENT.is_set():
+        logger.info("Received signal %s. Converter will stop soon.", signum)
+    STOP_EVENT.set()
+
+
+def _install_signal_handlers() -> None:  # pragma: no cover - signal handling
+    for candidate in (getattr(signal, "SIGUSR1", None), signal.SIGTERM, getattr(signal, "SIGINT", None)):
+        if candidate is None:
+            continue
+        try:
+            signal.signal(candidate, _handle_signal)
+        except (AttributeError, ValueError):
+            continue
+
+IMAGE_MAX_WIDTH = 3840
+IMAGE_MAX_HEIGHT = 2160
+IMAGE_QUALITY = 60
+
+
+class StopRequested(Exception):
+    """Raised when the worker should abort and exit."""
 
 
 def _now() -> datetime:
@@ -54,16 +92,16 @@ def _parse_datetime_from_name(name: str) -> Optional[datetime]:
     base = Path(name).stem
     match = re.search(r"(\d{4})[-_]?(\d{2})[-_]?(\d{2})[-_ ]?(\d{2})[-_]?(\d{2})[-_]?(\d{2})", base)
     if match:
-        y, mo, d, h, mi, s = match.groups()
+        parts = [int(value) for value in match.groups()]
         try:
-            return datetime(int(y), int(mo), int(d), int(h), int(mi), int(s))
+            return datetime(*parts)
         except ValueError:
             return None
     match = re.search(r"(\d{4})[-_]?(\d{2})[-_]?(\d{2})", base)
     if match:
-        y, mo, d = match.groups()
+        y, m, d = [int(value) for value in match.groups()]
         try:
-            return datetime(int(y), int(mo), int(d))
+            return datetime(y, m, d)
         except ValueError:
             return None
     return None
@@ -73,46 +111,36 @@ def _clean_base_name(original_name: str) -> str:
     base = Path(original_name).stem
     base = re.sub(r"\(\d+\)$", "", base)
     base = re.sub(r"^(\d{4}[-_]?\d{2}[-_]?\d{2}([-_ ]?\d{2}[-_]?\d{2}[-_]?\d{2})?)", "", base)
-    base = base.replace(" ", "-")
-    base = re.sub(r"-+", "-", base)
+    base = re.sub(r"\s+", "-", base)
     base = re.sub(r"[^A-Za-z0-9-_]", "-", base)
-    base = re.sub(r"_+", "_", base)
-    base = re.sub(r"-+", "-", base)
-    base = re.sub(r"-_", "-", base)
-    base = re.sub(r"_-", "-", base)
-    base = base.strip("-_")
-    return base
+    base = re.sub(r"[-_]{2,}", "-", base)
+    return base.strip("-_")
 
 
 def get_new_filename(original_name: str, capture_date: Optional[datetime] = None, ext: Optional[str] = None) -> str:
-    if capture_date is None:
-        capture_date = _parse_datetime_from_name(original_name) or _now()
-    if capture_date.tzinfo:
-        capture_date = capture_date.astimezone().replace(tzinfo=None)
-    if ext is None:
-        ext = Path(original_name).suffix
-    if not ext.startswith('.'):
-        ext = f".{ext}"
-    ext = ext.lower()
-
+    capture = capture_date or _parse_datetime_from_name(original_name) or _now()
+    if capture.tzinfo:
+        capture = capture.astimezone().replace(tzinfo=None)
+    suffix = ext if ext is not None else Path(original_name).suffix
+    suffix = suffix.lower() if suffix else ""
+    if suffix and not suffix.startswith("."):
+        suffix = f".{suffix}"
     base = _clean_base_name(original_name)
-    date_part = capture_date.strftime("%Y%m%d")
-    time_part = capture_date.strftime("%H%M%S")
+    date_part = capture.strftime("%Y%m%d")
+    time_part = capture.strftime("%H%M%S")
     if base:
-        return f"{date_part}-{time_part}-{base}{ext}"
-    return f"{date_part}-{time_part}{ext}"
+        return f"{date_part}-{time_part}-{base}{suffix}"
+    return f"{date_part}-{time_part}{suffix}"
 
 
 def _write_error_log(file_path: Path, error_text: str) -> None:
-    error_file = file_path.with_suffix('.txt')
-    with error_file.open("w", encoding="utf-8") as handle:
-        handle.write(error_text)
+    file_path.with_suffix(".txt").write_text(error_text, encoding="utf-8")
 
 
 def _remove_error_log(file_path: Path) -> None:
-    error_file = file_path.with_suffix('.txt')
-    if error_file.exists():
-        error_file.unlink()
+    error_path = file_path.with_suffix(".txt")
+    if error_path.exists():
+        error_path.unlink()
 
 
 def _probe_video_duration(input_path: Path) -> Optional[float]:
@@ -128,198 +156,158 @@ def _probe_video_duration(input_path: Path) -> Optional[float]:
     ]
     try:
         result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)
-        return float(result.stdout.strip())
     except Exception as exc:  # pragma: no cover - depends on ffprobe availability
         logger.warning("Unable to read duration for %s: %s", input_path.name, exc)
         return None
-
-
-@dataclass
-class ConversionContext:
-    queue: ConversionQueue
-    processed: int = 0
-    errors: List[Dict[str, str]] = None
-
-    def __post_init__(self):
-        if self.errors is None:
-            self.errors = []
-
-    def total_items(self, include_current: bool = False) -> int:
-        total = self.processed + len(self.queue.items)
-        if include_current:
-            total += 1
-        return total
-
-    def record_error(self, relative_path: str, message: str) -> None:
-        timestamp = _now().strftime("%Y-%m-%d %H:%M:%S")
-        self.errors.append({
-            "file": relative_path,
-            "message": message,
-            "timestamp": timestamp,
-        })
-        self.errors = self.errors[-10:]
-
-    def snapshot(self, status: str, current: Optional[Dict[str, object]] = None) -> Dict[str, object]:
-        total = self.total_items(include_current=bool(current))
-        remaining = max(total - self.processed, 0)
-        percent = round((self.processed / total) * 100, 2) if total else 0.0
-        return {
-            "status": status,
-            "total": total,
-            "processed": self.processed,
-            "remaining": remaining,
-            "percent": percent,
-            "current": current,
-            "errors": self.errors,
-        }
+    try:
+        return float(result.stdout.strip())
+    except ValueError:
+        return None
 
 
 class Converter:
     def __init__(self, server_port: str):
         self.server_port = server_port
         self.queue = ConversionQueue()
-        self.context = ConversionContext(self.queue)
-        self.current_item: Optional[QueueItem] = None
+        self.processed = 0
+        self.errors: List[Dict[str, str]] = []
+        self.current: Optional[QueueItem] = None
 
-    def check_for_restart(self, process: Optional[subprocess.Popen] = None) -> None:
-        if not CONVERTER_RESTART_FILE.exists():
+    @staticmethod
+    def _check_stop(process: Optional[subprocess.Popen] = None) -> None:
+        if not STOP_EVENT.is_set():
             return
-        logger.info("Restart requested by admin. Restarting conversion loop.")
-        CONVERTER_RESTART_FILE.unlink(missing_ok=True)
         if process and process.poll() is None:
-            process.send_signal(signal.SIGINT)
+            process.terminate()
             try:
                 process.wait(timeout=5)
             except subprocess.TimeoutExpired:
                 process.kill()
-        raise RestartRequested
+        raise StopRequested
 
-    def update_state(self, status: str, current: Optional[Dict[str, object]] = None) -> None:
-        payload = self.context.snapshot(status=status, current=current)
-        save_state(payload)
+    def _state_payload(self, status: str, current: Optional[Dict[str, object]]) -> Dict[str, object]:
+        current_percent = 0.0
+        if current and isinstance(current.get("percent"), (int, float)):
+            current_percent = max(0.0, min(float(current["percent"]), 100.0))
+        pending = len(self.queue)
+        total = self.processed + pending + (1 if current else 0)
+        if total:
+            completed = self.processed + (current_percent / 100.0)
+            percent = round((completed / total) * 100.0, 2)
+        else:
+            percent = 0.0
+        return {
+            "status": status,
+            "total": total,
+            "processed": self.processed,
+            "remaining": pending,
+            "percent": percent,
+            "current": current,
+            "errors": self.errors,
+        }
 
-    def build_current_payload(
+    def _save_state(self, status: str, current: Optional[Dict[str, object]]) -> None:
+        save_state(self._state_payload(status, current))
+
+    def _remember_error(self, item: QueueItem, message: str) -> None:
+        entry = {
+            "file": item.relative_path,
+            "message": message,
+            "timestamp": _now().strftime("%Y-%m-%d %H:%M:%S"),
+        }
+        self.errors.append(entry)
+        self.errors[:] = self.errors[-10:]
+
+    def _current_payload(
         self,
         item: QueueItem,
-        percent: Optional[float] = 0.0,
-        eta_seconds: Optional[float] = None,
+        *,
+        percent: Optional[float] = None,
+        eta: Optional[float] = None,
         duration: Optional[float] = None,
     ) -> Dict[str, object]:
         payload: Dict[str, object] = {
             "file": item.relative_path,
             "type": item.file_type,
-            "percent": None if percent is None else round(percent, 2),
-            "eta_seconds": None if eta_seconds is None else round(eta_seconds, 1),
-            "index": self.context.processed + 1,
-            "attempt": item.attempts + 1,
+            "index": self.processed + 1,
         }
+        if percent is not None:
+            payload["percent"] = round(max(0.0, min(percent, 100.0)), 2)
+        if eta is not None:
+            payload["eta_seconds"] = round(max(eta, 0.0), 1)
         if duration is not None:
-            payload["duration_seconds"] = round(duration, 1)
+            payload["duration_seconds"] = round(max(duration, 0.0), 1)
         return payload
 
-    def convert_image(self, item: QueueItem) -> None:
-        file_path = item.absolute_path
-        original_size = file_path.stat().st_size
-        capture_date: Optional[datetime] = None
-        output_path: Optional[Path] = None
-        keep_original_only = False
-        with Image.open(file_path) as img:
-            capture_date = (
-                get_capture_date(img)
-                or _parse_datetime_from_name(file_path.name)
-                or _now()
-            )
-            width, height = img.size
-            max_width, max_height = 3840, 2160
-            ratio = min(1, max_width / width, max_height / height)
-            original_suffix = file_path.suffix.lower()
-            keep_original_only = ratio == 1 and original_suffix in {".jpg", ".jpeg"}
-            if keep_original_only:
-                output_path = None
-            else:
-                working_image = img.convert("RGB")
-                if ratio < 1:
-                    new_size = (int(width * ratio), int(height * ratio))
-                    logger.info(
-                        "Resizing image %s from %s to %s",
-                        file_path.name,
-                        img.size,
-                        new_size,
-                    )
-                    working_image = working_image.resize(new_size, Image.LANCZOS)
-                data = list(working_image.getdata())
-                img_no_meta = Image.new(working_image.mode, working_image.size)
-                img_no_meta.putdata(data)
-                new_filename = get_new_filename(file_path.name, capture_date, ext=".jpg")
-                output_path = UPLOADED_DIR / new_filename
-                output_path.parent.mkdir(parents=True, exist_ok=True)
-                output_path.unlink(missing_ok=True)
-                img_no_meta.save(output_path, "JPEG", quality=60, optimize=True)
-        if keep_original_only:
-            assert capture_date is not None
-            original_ext = file_path.suffix if file_path.suffix else ".jpg"
-            new_name = get_new_filename(file_path.name, capture_date, ext=original_ext)
-            final_path = UPLOADED_DIR / new_name
-            final_path.parent.mkdir(parents=True, exist_ok=True)
-            final_path.unlink(missing_ok=True)
-            shutil.move(str(file_path), final_path)
-            logger.info(
-                "Moved original image without recompression: %s -> %s",
-                file_path.name,
-                final_path.name,
-            )
-        elif output_path is not None and output_path.exists():
-            converted_size = output_path.stat().st_size
-            if converted_size >= original_size:
-                original_ext = file_path.suffix if file_path.suffix else ".jpg"
-                fallback_name = get_new_filename(
-                    file_path.name,
-                    capture_date or _now(),
-                    ext=original_ext,
-                )
-                fallback_path = UPLOADED_DIR / fallback_name
-                fallback_path.parent.mkdir(parents=True, exist_ok=True)
-                fallback_path.unlink(missing_ok=True)
-                shutil.move(str(file_path), fallback_path)
-                output_path.unlink(missing_ok=True)
-                logger.info(
-                    "Converted image %s larger than original (%s >= %s). Kept original file.",
-                    file_path.name,
-                    converted_size,
-                    original_size,
-                )
-            else:
-                UPLOADED_DIR.mkdir(parents=True, exist_ok=True)
-        _remove_error_log(file_path)
+    def _ensure_stop(self) -> None:
+        if STOP_EVENT.is_set():
+            raise StopRequested
 
-    def convert_video(self, item: QueueItem) -> None:
-        file_path = item.absolute_path
-        capture_date = get_video_capture_date(file_path)
-        new_filename = get_new_filename(file_path.name, capture_date, ext=".mp4")
-        output_path = UPLOADED_DIR / new_filename
-        duration = item.duration or _probe_video_duration(file_path)
-        item.duration = duration
-        output_path.unlink(missing_ok=True)
-        if duration:
-            initial_eta = duration
-        else:
-            initial_eta = None
-        initial_payload = self.build_current_payload(
-            item,
-            percent=0.0,
-            eta_seconds=initial_eta,
-            duration=duration,
-        )
-        self.update_state(status="running", current=initial_payload)
+    def _convert_image(self, item: QueueItem) -> None:
+        path = item.absolute_path
+        if not path.exists():
+            return
+        self._ensure_stop()
+        with Image.open(path) as img:
+            capture = get_capture_date(img) or _parse_datetime_from_name(path.name) or _now()
+            width, height = img.size
+            ratio = min(1.0, IMAGE_MAX_WIDTH / max(width, 1), IMAGE_MAX_HEIGHT / max(height, 1))
+            if img.mode not in ("RGB", "L"):
+                working = img.convert("RGB")
+            else:
+                working = img.copy()
+            if ratio < 1.0:
+                new_size = (int(width * ratio), int(height * ratio))
+                working = working.resize(new_size, Image.LANCZOS)
+            output_name = get_new_filename(path.name, capture, ext=".jpg")
+            output_path = UPLOADED_DIR / output_name
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            self._ensure_stop()
+            working.save(output_path, "JPEG", quality=IMAGE_QUALITY, optimize=True)
+        self._ensure_stop()
+        _remove_error_log(path)
+        path.unlink(missing_ok=True)
+        logger.info("Converted image %s -> %s", item.relative_path, output_name)
+
+    def _convert_video(self, item: QueueItem) -> None:
+        path = item.absolute_path
+        if not path.exists():
+            return
+        capture = get_video_capture_date(path)
+        output_name = get_new_filename(path.name, capture, ext=".mp4")
+        output_path = UPLOADED_DIR / output_name
+        duration = _probe_video_duration(path)
+        if duration is not None and duration <= 0:
+            duration = None
+        current = self._current_payload(item, percent=0.0, eta=duration, duration=duration)
+        self._save_state("running", current)
         cmd = [
-            "ffmpeg", "-y",
-            "-i", str(file_path),
-            "-c:v", "libx264", "-preset", "medium", "-crf", "30",
-            "-profile:v", "high", "-level:v", "4.0",
-            "-pix_fmt", "yuv420p", "-movflags", "faststart",
-            "-c:a", "aac", "-b:a", "128k", "-map_metadata", "-1",
-            "-progress", "pipe:1", "-nostats", "-loglevel", "error",
-            str(output_path)
+            "ffmpeg",
+            "-y",
+            "-i",
+            str(path),
+            "-c:v",
+            "libx264",
+            "-preset",
+            "medium",
+            "-crf",
+            "30",
+            "-pix_fmt",
+            "yuv420p",
+            "-movflags",
+            "faststart",
+            "-c:a",
+            "aac",
+            "-b:a",
+            "128k",
+            "-map_metadata",
+            "-1",
+            "-progress",
+            "pipe:1",
+            "-nostats",
+            "-loglevel",
+            "error",
+            str(output_path),
         ]
         process = subprocess.Popen(
             cmd,
@@ -330,137 +318,116 @@ class Converter:
             bufsize=1,
         )
         last_percent = 0.0
-        start_time = time.time()
         try:
             for line in iter(process.stdout.readline, ""):
-                self.check_for_restart(process)
+                self._check_stop(process)
                 line = line.strip()
-                if not line:
+                if not line.startswith("out_time_ms=") or duration is None:
                     continue
-                if line.startswith("out_time_ms=") and duration:
-                    raw_value = line.split("=", 1)[1]
-                    try:
-                        microseconds = int(raw_value)
-                    except ValueError:
-                        logger.debug(
-                            "Skipping out_time_ms update with non-numeric value %s for %s",
-                            raw_value,
-                            item.relative_path,
-                        )
-                        continue
-                    seconds_done = microseconds / 1_000_000
-                    percent = min(100.0, (seconds_done / duration) * 100)
-                    last_percent = percent
-                    eta_seconds = max(duration - seconds_done, 0.0)
-                    payload = self.build_current_payload(
-                        item,
-                        percent=percent,
-                        eta_seconds=eta_seconds,
-                        duration=duration,
-                    )
-                    self.update_state(status="running", current=payload)
-            self.check_for_restart(process)
-        finally:
-            process_stdout = process.stdout
-            if process_stdout:
-                process_stdout.close()
-        stderr_output = process.stderr.read() if process.stderr else ""
-        return_code = process.wait()
-        if return_code != 0:
-            raise RuntimeError(f"ffmpeg exited with code {return_code}: {stderr_output}")
-        if last_percent < 100.0:
-            elapsed = time.time() - start_time
-            eta = max((duration or 0) - elapsed, 0.0)
-            payload = self.build_current_payload(
-                item,
-                percent=100.0,
-                eta_seconds=eta,
-                duration=duration,
-            )
-            self.update_state(status="running", current=payload)
-        _remove_error_log(file_path)
-
-    def process_item(self, item: QueueItem) -> None:
-        file_path = item.absolute_path
-        if not file_path.exists():
-            logger.warning("File %s no longer exists. Skipping.", item.relative_path)
-            return
-        logger.info(
-            "Starting conversion of %s (type: %s, attempt %d)",
-            item.relative_path,
-            item.file_type,
-            item.attempts + 1,
-        )
-        current_info = self.build_current_payload(item)
-        self.update_state(status="running", current=current_info)
-        if item.file_type == "video":
-            self.convert_video(item)
-        else:
-            self.convert_image(item)
-            finished_payload = self.build_current_payload(item, percent=100.0, eta_seconds=0.0)
-            self.update_state(status="running", current=finished_payload)
-        file_path.unlink(missing_ok=True)
-        logger.info("Deleted original file: %s", file_path)
-
-    def run(self) -> None:
-        self.queue.refresh_from_disk()
-        if len(self.queue) == 0:
-            reset_state()
-            logger.info("No files to convert.")
-            return
-        self.update_state(status="running", current=None)
-        try:
-            while True:
-                self.queue.refresh_from_disk()
-                item = self.queue.pop_next()
-                if item is None:
-                    break
-                self.current_item = item
                 try:
-                    self.check_for_restart()
-                    self.process_item(item)
-                    self.context.processed += 1
-                    self.update_state(status="running", current=None)
-                except RestartRequested:
-                    logger.info("Restarting converter: moving %s to queue tail", item.relative_path)
-                    self.queue.push_back(item)
-                    self.update_state(status="restarting", current=None)
+                    current_seconds = int(line.split("=", 1)[1]) / 1_000_000
+                except ValueError:
                     continue
-                except Exception as exc:
-                    logger.exception("Error processing %s: %s", item.relative_path, exc)
-                    error_text = traceback.format_exc()
-                    _write_error_log(item.absolute_path, error_text)
-                    self.context.record_error(item.relative_path, str(exc))
-                    item.attempts += 1
-                    if item.attempts < MAX_ATTEMPTS_PER_FILE:
-                        self.queue.push_back(item)
-                    else:
-                        logger.error("Max attempts reached for %s. Leaving file in raw directory for manual review.", item.relative_path)
-                    self.update_state(status="running", current=None)
-                finally:
-                    self.current_item = None
-                if len(self.queue) == 0:
-                    self.queue.refresh_from_disk()
-                if len(self.queue) == 0:
-                    break
+                if duration <= 0:
+                    continue
+                last_percent = max(0.0, min((current_seconds / duration) * 100.0, 100.0))
+                eta = max(duration - current_seconds, 0.0)
+                progress = self._current_payload(item, percent=last_percent, eta=eta, duration=duration)
+                self._save_state("running", progress)
+        except StopRequested:
+            if output_path.exists():
+                output_path.unlink(missing_ok=True)
+            raise
         finally:
-            summary = self.context.snapshot(status="idle", current=None)
-            save_state(summary)
-            logger.info("Conversion finished. Processed: %s", self.context.processed)
-            self.notify_server()
+            if process.stdout:
+                process.stdout.close()
+        stderr = process.stderr.read() if process.stderr else ""
+        if process.stderr:
+            process.stderr.close()
+        return_code = process.wait()
+        try:
+            self._check_stop()
+        except StopRequested:
+            if output_path.exists():
+                output_path.unlink(missing_ok=True)
+            raise
+        if return_code != 0:
+            if output_path.exists():
+                output_path.unlink(missing_ok=True)
+            raise RuntimeError(f"ffmpeg exited with code {return_code}: {stderr}")
+        final_payload = self._current_payload(item, percent=100.0, eta=0.0, duration=duration)
+        self._save_state("running", final_payload)
+        _remove_error_log(path)
+        path.unlink(missing_ok=True)
+        logger.info("Converted video %s -> %s", item.relative_path, output_name)
 
-    def notify_server(self) -> None:
+    def _process_item(self, item: QueueItem) -> None:
+        if not item.absolute_path.exists():
+            logger.warning("File %s missing, skipping", item.relative_path)
+            return
+        logger.info("Processing %s", item.relative_path)
+        self.current = item
+        current_payload = self._current_payload(item, percent=0.0)
+        self._save_state("running", current_payload)
+        try:
+            if item.file_type == "video":
+                self._convert_video(item)
+            else:
+                self._convert_image(item)
+        finally:
+            self.current = None
+
+    def _notify_server(self) -> None:
         if not self.server_port:
             return
         try:
             url = f"http://localhost:{self.server_port}/admin/update_content"
-            response = httpx.post(url, follow_redirects=True, timeout=5.0)
-            if response.status_code in [200, 303]:
-                logger.info("Server update successful: %s", response.text)
-            else:
-                logger.error("Server update failed: %s", response.text)
+            httpx.post(url, follow_redirects=True, timeout=5.0)
         except Exception as exc:
-            logger.error("Error calling /admin/update_content: %s", exc)
+            logger.warning("Unable to notify server: %s", exc)
+
+    def run(self) -> None:
+        self.queue.refresh_from_disk()
+        if not len(self.queue):
+            reset_state()
+            logger.info("No files to convert.")
+            return
+        STOP_EVENT.clear()
+        self._save_state("running", None)
+        try:
+            while not STOP_EVENT.is_set():
+                if not len(self.queue):
+                    if not self.queue.refresh_from_disk():
+                        break
+                    continue
+                item = self.queue.pop_next()
+                if item is None:
+                    continue
+                try:
+                    self._process_item(item)
+                except StopRequested:
+                    self.queue.push_front(item)
+                    raise
+                except Exception as exc:
+                    logger.exception("Error processing %s", item.relative_path)
+                    _write_error_log(item.absolute_path, str(exc))
+                    self._remember_error(item, str(exc))
+                else:
+                    self.processed += 1
+                finally:
+                    self._save_state("running", None)
+                    self.queue.refresh_from_disk()
+        except StopRequested:
+            logger.info("Stop requested. Leaving remaining files in the queue.")
+            if self.current is not None:
+                self.queue.push_front(self.current)
+            self._save_state("restarting", None)
+        finally:
+            self.queue.refresh_from_disk()
+            final_state = self._state_payload("idle", None)
+            save_state(final_state)
+            logger.info("Conversion finished. Processed %s files", self.processed)
+            self._notify_server()
 
 
 def main() -> None:
@@ -468,17 +435,26 @@ def main() -> None:
     if CONVERT_LOCK_FILE.exists():
         logger.info("Converter already running.")
         return
-    CONVERT_LOCK_FILE.touch(exist_ok=False)
+    payload = {"pid": os.getpid(), "started": _now().isoformat()}
     try:
+        with CONVERT_LOCK_FILE.open("x", encoding="utf-8") as handle:
+            json.dump(payload, handle)
+    except FileExistsError:
+        logger.info("Converter already running.")
+        return
+    except OSError as exc:
+        logger.error("Unable to create lock file: %s", exc)
+        return
+    try:
+        STOP_EVENT.clear()
+        _install_signal_handlers()
         converter = Converter(port)
         converter.run()
     except Exception:
         logger.exception("Unexpected converter crash")
     finally:
-        if CONVERTER_RESTART_FILE.exists():
-            CONVERTER_RESTART_FILE.unlink(missing_ok=True)
         if CONVERT_LOCK_FILE.exists():
-            CONVERT_LOCK_FILE.unlink()
+            CONVERT_LOCK_FILE.unlink(missing_ok=True)
 
 
 if __name__ == "__main__":

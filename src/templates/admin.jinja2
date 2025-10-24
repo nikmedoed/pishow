@@ -25,8 +25,8 @@
     {% set remaining_diff = total - processed %}
     {% set remaining = conversion_state.remaining if conversion_state.remaining is not none else (remaining_diff if remaining_diff > 0 else 0) %}
     {% set overall_percent = conversion_state.percent or 0 %}
-    {% set file_percent = current.percent if current and current.percent is not none else None %}
-    {% set eta_seconds = current.eta_seconds if current and current.eta_seconds is not none else None %}
+    {% set file_percent = current.percent if current and current.percent is defined and current.percent is not none else None %}
+    {% set eta_seconds = current.eta_seconds if current and current.eta_seconds is defined and current.eta_seconds is not none else None %}
 
     <div id="conversion-wrapper" class="conversion-wrapper" data-active="{{ 'true' if conversion_active else 'false' }}" {% if not conversion_active %}style="display:none;"{% endif %}>
         <div class="conversion-card" data-status="{{ status }}">
