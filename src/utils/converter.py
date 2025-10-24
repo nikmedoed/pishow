@@ -16,7 +16,17 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 import httpx
 from PIL import Image
 
-from src.settings import CONVERT_LOCK_FILE, UPLOADED_DIR, UPLOADED_RAW_DIR
+from src.settings import (
+    CONVERT_LOCK_FILE,
+    CONVERTER_HIGH_RES_PRESET,
+    CONVERTER_MAX_VIDEO_HEIGHT,
+    CONVERTER_MAX_VIDEO_LONG_EDGE,
+    CONVERTER_MAX_VIDEO_SHORT_EDGE,
+    CONVERTER_MAX_VIDEO_WIDTH,
+    CONVERTER_VIDEO_PRESET,
+    UPLOADED_DIR,
+    UPLOADED_RAW_DIR,
+)
 from src.utils.conversion_state import update_state
 from src.utils.converter_queue import ConversionQueue, QueueItem
 from src.utils.files import get_capture_date, get_video_capture_date
@@ -168,6 +178,80 @@ def _probe_video_duration(input_path: Path) -> Optional[float]:
         return None
 
 
+def _probe_video_dimensions(input_path: Path) -> Optional[tuple[int, int]]:
+    cmd = [
+        "ffprobe",
+        "-v",
+        "error",
+        "-select_streams",
+        "v:0",
+        "-show_entries",
+        "stream=width,height",
+        "-of",
+        "csv=s=,:p=0",
+        str(input_path),
+    ]
+    try:
+        result = subprocess.run(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            check=True,
+        )
+    except Exception as exc:  # pragma: no cover - depends on ffprobe availability
+        logger.warning("Unable to read dimensions for %s: %s", input_path.name, exc)
+        return None
+    line = result.stdout.strip()
+    if not line:
+        return None
+    parts = line.split(",")
+    if len(parts) != 2:
+        return None
+    try:
+        width = int(parts[0])
+        height = int(parts[1])
+    except ValueError:
+        return None
+    if width <= 0 or height <= 0:
+        return None
+    return width, height
+
+
+def _scaled_dimensions(width: int, height: int) -> Optional[tuple[int, int]]:
+    constraints: List[float] = []
+    max_width = max(CONVERTER_MAX_VIDEO_WIDTH, 0)
+    max_height = max(CONVERTER_MAX_VIDEO_HEIGHT, 0)
+    max_long_edge = max(CONVERTER_MAX_VIDEO_LONG_EDGE, 0)
+    max_short_edge = max(CONVERTER_MAX_VIDEO_SHORT_EDGE, 0)
+    long_edge = max(width, height)
+    short_edge = min(width, height)
+
+    if max_width:
+        constraints.append(width / max_width)
+    if max_height:
+        constraints.append(height / max_height)
+    if max_long_edge:
+        constraints.append(long_edge / max_long_edge)
+    if max_short_edge:
+        constraints.append(short_edge / max_short_edge)
+
+    if not constraints:
+        return None
+
+    scale_factor = max(constraints)
+    if scale_factor <= 1.0:
+        return None
+    new_width = max(2, int(width / scale_factor))
+    new_height = max(2, int(height / scale_factor))
+    # x264 requires even dimensions
+    new_width -= new_width % 2
+    new_height -= new_height % 2
+    if new_width < 2 or new_height < 2:
+        return None
+    return new_width, new_height
+
+
 class Converter:
     def __init__(self, server_port: str):
         self.server_port = server_port
@@ -295,6 +379,38 @@ class Converter:
         duration = _probe_video_duration(path)
         if duration is not None and duration <= 0:
             duration = None
+        dimensions = _probe_video_dimensions(path)
+        scale_args: List[str] = []
+        preset = CONVERTER_VIDEO_PRESET
+        if dimensions is not None:
+            width, height = dimensions
+            scaled = _scaled_dimensions(width, height)
+            if scaled is not None:
+                target_width, target_height = scaled
+                scale_args = ["-vf", f"scale={target_width}:{target_height}"]
+                if CONVERTER_HIGH_RES_PRESET:
+                    preset = CONVERTER_HIGH_RES_PRESET
+                triggers = []
+                if CONVERTER_MAX_VIDEO_WIDTH and width > CONVERTER_MAX_VIDEO_WIDTH:
+                    triggers.append(f"width>{CONVERTER_MAX_VIDEO_WIDTH}")
+                if CONVERTER_MAX_VIDEO_HEIGHT and height > CONVERTER_MAX_VIDEO_HEIGHT:
+                    triggers.append(f"height>{CONVERTER_MAX_VIDEO_HEIGHT}")
+                long_edge = max(width, height)
+                short_edge = min(width, height)
+                if CONVERTER_MAX_VIDEO_LONG_EDGE and long_edge > CONVERTER_MAX_VIDEO_LONG_EDGE:
+                    triggers.append(f"long_edge>{CONVERTER_MAX_VIDEO_LONG_EDGE}")
+                if CONVERTER_MAX_VIDEO_SHORT_EDGE and short_edge > CONVERTER_MAX_VIDEO_SHORT_EDGE:
+                    triggers.append(f"short_edge>{CONVERTER_MAX_VIDEO_SHORT_EDGE}")
+                trigger_text = ", ".join(triggers) if triggers else "constraints"
+                logger.info(
+                    "Scaling video %s from %sx%s to %sx%s (%s)",
+                    item.relative_path,
+                    width,
+                    height,
+                    target_width,
+                    target_height,
+                    trigger_text,
+                )
         current = self._current_payload(item, percent=0.0, eta=duration, duration=duration)
         self._set_state("running", current, force=True)
         cmd = [
@@ -305,7 +421,7 @@ class Converter:
             "-c:v",
             "libx264",
             "-preset",
-            "medium",
+            preset,
             "-crf",
             "30",
             "-pix_fmt",
@@ -323,6 +439,7 @@ class Converter:
             "-nostats",
             "-loglevel",
             "error",
+            *scale_args,
             str(output_path),
         ]
         process = subprocess.Popen(

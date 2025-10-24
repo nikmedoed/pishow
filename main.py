@@ -1,3 +1,4 @@
+import asyncio
 import importlib
 import logging
 import os
@@ -23,7 +24,12 @@ async def lifespan(app: FastAPI):
     observer_thread.start()
     logging.info("Media observer started.")
     conversion_watchdog = ConversionWatchdog()
-    conversion_watchdog.start()
+
+    async def kickoff_conversion() -> None:
+        await asyncio.sleep(0)
+        conversion_watchdog.start()
+
+    asyncio.create_task(kickoff_conversion())
     yield
     # Shutdown: останавливаем наблюдатель
     observer.stop()
