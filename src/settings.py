@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from typing import Optional
 
 from dotenv import load_dotenv
 from fastapi.templating import Jinja2Templates
@@ -31,6 +32,26 @@ CONVERTER_MAX_VIDEO_LONG_EDGE = int(os.getenv("CONVERTER_MAX_VIDEO_LONG_EDGE", "
 CONVERTER_MAX_VIDEO_SHORT_EDGE = int(os.getenv("CONVERTER_MAX_VIDEO_SHORT_EDGE", "0"))
 CONVERTER_VIDEO_PRESET = os.getenv("CONVERTER_VIDEO_PRESET", "medium")
 CONVERTER_HIGH_RES_PRESET = os.getenv("CONVERTER_HIGH_RES_PRESET", "veryfast")
+
+
+def _positive_int_env(name: str) -> Optional[int]:
+    raw = os.getenv(name)
+    if raw is None:
+        return None
+    try:
+        value = int(raw)
+    except ValueError:
+        return None
+    return value if value > 0 else None
+
+
+CONVERTER_FFMPEG_THREADS = _positive_int_env("CONVERTER_FFMPEG_THREADS")
+
+_syncthing_auto_pause = os.getenv("SYNCTHING_AUTO_PAUSE", "false").strip().lower()
+SYNCTHING_AUTO_PAUSE = _syncthing_auto_pause in {"1", "true", "yes", "on"}
+SYNCTHING_API_URL = os.getenv("SYNCTHING_API_URL", "http://localhost:8384")
+SYNCTHING_API_KEY = os.getenv("SYNCTHING_API_KEY")
+SYNCTHING_FOLDER_ID = os.getenv("SYNCTHING_FOLDER_ID")
 
 media_handler = MediaDict(MEDIA_DIR, VIDEO_BACKGROUND_SUFFIX, UPLOADED_RAW_DIR)
 device_queue_manager = DeviceQueueManager(media_handler, STORAGE_DIR)

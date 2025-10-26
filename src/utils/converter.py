@@ -5,6 +5,7 @@ import re
 import signal
 import subprocess
 import sys
+from contextlib import nullcontext
 from copy import deepcopy
 from datetime import datetime
 from pathlib import Path
@@ -24,12 +25,18 @@ from src.settings import (
     CONVERTER_MAX_VIDEO_SHORT_EDGE,
     CONVERTER_MAX_VIDEO_WIDTH,
     CONVERTER_VIDEO_PRESET,
+    CONVERTER_FFMPEG_THREADS,
+    SYNCTHING_API_KEY,
+    SYNCTHING_API_URL,
+    SYNCTHING_AUTO_PAUSE,
+    SYNCTHING_FOLDER_ID,
     UPLOADED_DIR,
     UPLOADED_RAW_DIR,
 )
 from src.utils.conversion_state import update_state
 from src.utils.converter_queue import ConversionQueue, QueueItem
 from src.utils.files import get_capture_date, get_video_capture_date
+from src.utils.syncthing import SyncthingPauseManager
 
 try:  # pragma: no cover - optional dependency
     from pillow_heif import register_heif_opener
@@ -71,8 +78,6 @@ def _configure_logging() -> None:
 _configure_logging()
 
 STOP_EVENT = Event()
-
-
 def _handle_signal(signum, _frame) -> None:  # pragma: no cover - signal handler
     if not STOP_EVENT.is_set():
         logger.info("Received signal %s. Converter will stop soon.", signum)
@@ -260,6 +265,19 @@ class Converter:
         self.errors: List[Dict[str, str]] = []
         self.current: Optional[QueueItem] = None
         self._last_state_payload: Optional[Dict[str, object]] = None
+        self._ffmpeg_threads = CONVERTER_FFMPEG_THREADS
+        if self._ffmpeg_threads:
+            logger.info("Limiting ffmpeg to %s thread(s)", self._ffmpeg_threads)
+        if SYNCTHING_AUTO_PAUSE and SYNCTHING_FOLDER_ID:
+            self._syncthing_manager = SyncthingPauseManager(
+                SYNCTHING_API_URL,
+                SYNCTHING_FOLDER_ID,
+                api_key=SYNCTHING_API_KEY,
+            )
+        else:
+            if SYNCTHING_AUTO_PAUSE:
+                logger.warning("Syncthing auto pause enabled but SYNCTHING_FOLDER_ID is missing")
+            self._syncthing_manager = None
 
     @staticmethod
     def _check_stop(process: Optional[subprocess.Popen] = None) -> None:
@@ -413,35 +431,39 @@ class Converter:
                 )
         current = self._current_payload(item, percent=0.0, eta=duration, duration=duration)
         self._set_state("running", current, force=True)
-        cmd = [
-            "ffmpeg",
-            "-y",
-            "-i",
-            str(path),
-            "-c:v",
-            "libx264",
-            "-preset",
-            preset,
-            "-crf",
-            "30",
-            "-pix_fmt",
-            "yuv420p",
-            "-movflags",
-            "faststart",
-            "-c:a",
-            "aac",
-            "-b:a",
-            "128k",
-            "-map_metadata",
-            "-1",
-            "-progress",
-            "pipe:1",
-            "-nostats",
-            "-loglevel",
-            "error",
-            *scale_args,
-            str(output_path),
-        ]
+        cmd = ["ffmpeg"]
+        if self._ffmpeg_threads:
+            cmd.extend(["-threads", str(self._ffmpeg_threads)])
+        cmd.extend(
+            [
+                "-y",
+                "-i",
+                str(path),
+                "-c:v",
+                "libx264",
+                "-preset",
+                preset,
+                "-crf",
+                "30",
+                "-pix_fmt",
+                "yuv420p",
+                "-movflags",
+                "faststart",
+                "-c:a",
+                "aac",
+                "-b:a",
+                "128k",
+                "-map_metadata",
+                "-1",
+                "-progress",
+                "pipe:1",
+                "-nostats",
+                "-loglevel",
+                "error",
+                *scale_args,
+                str(output_path),
+            ]
+        )
         process = subprocess.Popen(
             cmd,
             stdout=subprocess.PIPE,
@@ -520,47 +542,53 @@ class Converter:
             logger.warning("Unable to notify server: %s", exc)
 
     def run(self) -> None:
-        self.queue.refresh_from_disk()
-        if not len(self.queue):
-            self._set_state("idle", None, force=True)
-            logger.info("No files to convert.")
-            return
-        STOP_EVENT.clear()
-        self._set_state("running", None, force=True)
-        try:
-            while not STOP_EVENT.is_set():
-                if not len(self.queue):
-                    if not self.queue.refresh_from_disk():
-                        break
-                    continue
-                item = self.queue.pop_next()
-                if item is None:
-                    continue
-                try:
-                    self._process_item(item)
-                except StopRequested:
-                    self.queue.push_front(item)
-                    raise
-                except Exception as exc:
-                    logger.exception("Error processing %s", item.relative_path)
-                    _write_error_log(item.absolute_path, str(exc))
-                    self._remember_error(item, str(exc))
-                    self._set_state("running", None, force=True)
-                else:
-                    self.processed += 1
-                finally:
-                    self._set_state("running", None)
-                    self.queue.refresh_from_disk()
-        except StopRequested:
-            logger.info("Stop requested. Leaving remaining files in the queue.")
-            if self.current is not None:
-                self.queue.push_front(self.current)
-            self._set_state("restarting", None, force=True)
-        finally:
+        context = (
+            self._syncthing_manager.pause_during_conversion()
+            if self._syncthing_manager
+            else nullcontext()
+        )
+        with context:
             self.queue.refresh_from_disk()
-            self._set_state("idle", None, force=True)
-            logger.info("Conversion finished. Processed %s files", self.processed)
-            self._notify_server()
+            if not len(self.queue):
+                self._set_state("idle", None, force=True)
+                logger.info("No files to convert.")
+                return
+            STOP_EVENT.clear()
+            self._set_state("running", None, force=True)
+            try:
+                while not STOP_EVENT.is_set():
+                    if not len(self.queue):
+                        if not self.queue.refresh_from_disk():
+                            break
+                        continue
+                    item = self.queue.pop_next()
+                    if item is None:
+                        continue
+                    try:
+                        self._process_item(item)
+                    except StopRequested:
+                        self.queue.push_front(item)
+                        raise
+                    except Exception as exc:
+                        logger.exception("Error processing %s", item.relative_path)
+                        _write_error_log(item.absolute_path, str(exc))
+                        self._remember_error(item, str(exc))
+                        self._set_state("running", None, force=True)
+                    else:
+                        self.processed += 1
+                    finally:
+                        self._set_state("running", None)
+                        self.queue.refresh_from_disk()
+            except StopRequested:
+                logger.info("Stop requested. Leaving remaining files in the queue.")
+                if self.current is not None:
+                    self.queue.push_front(self.current)
+                self._set_state("restarting", None, force=True)
+            finally:
+                self.queue.refresh_from_disk()
+                self._set_state("idle", None, force=True)
+                logger.info("Conversion finished. Processed %s files", self.processed)
+                self._notify_server()
 
 
 def main() -> None:
