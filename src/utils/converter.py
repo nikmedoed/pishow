@@ -15,7 +15,7 @@ from typing import Dict, List, Optional
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 import httpx
-from PIL import Image
+from PIL import Image, ImageOps
 from pymediainfo import MediaInfo
 
 from src.settings import (
@@ -397,12 +397,13 @@ class Converter:
         self._ensure_stop()
         with Image.open(path) as img:
             capture = get_capture_date(img) or _parse_datetime_from_name(path.name) or _now()
-            width, height = img.size
+            oriented = ImageOps.exif_transpose(img)
+            width, height = oriented.size
             ratio = min(1.0, IMAGE_MAX_WIDTH / max(width, 1), IMAGE_MAX_HEIGHT / max(height, 1))
-            if img.mode not in ("RGB", "L"):
-                working = img.convert("RGB")
+            if oriented.mode not in ("RGB", "L"):
+                working = oriented.convert("RGB")
             else:
-                working = img.copy()
+                working = oriented.copy()
             if ratio < 1.0:
                 new_size = (int(width * ratio), int(height * ratio))
                 working = working.resize(new_size, Image.LANCZOS)
