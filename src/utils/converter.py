@@ -130,10 +130,21 @@ def _clean_base_name(original_name: str) -> str:
     base = Path(original_name).stem
     base = re.sub(r"\(\d+\)$", "", base)
     base = re.sub(r"^(\d{4}[-_]?\d{2}[-_]?\d{2}([-_ ]?\d{2}[-_]?\d{2}[-_]?\d{2})?)", "", base)
+    base = base.strip()
     base = re.sub(r"\s+", "-", base)
-    base = re.sub(r"[^A-Za-z0-9-_]", "-", base)
-    base = re.sub(r"[-_]{2,}", "-", base)
+    base = re.sub(r"[^\w-]", "-", base, flags=re.UNICODE)
+    base = re.sub(r"-{2,}", "-", base)
+    base = re.sub(r"_{2,}", "_", base)
     return base.strip("-_")
+
+
+def _is_redundant_time_segment(base: str, time_part: str) -> bool:
+    if not base:
+        return False
+    if any(ch not in "0123456789-_" for ch in base):
+        return False
+    digits = "".join(ch for ch in base if ch.isdigit())
+    return digits == time_part and len(digits) == len(time_part)
 
 
 def get_new_filename(original_name: str, capture_date: Optional[datetime] = None, ext: Optional[str] = None) -> str:
@@ -147,6 +158,8 @@ def get_new_filename(original_name: str, capture_date: Optional[datetime] = None
     base = _clean_base_name(original_name)
     date_part = capture.strftime("%Y%m%d")
     time_part = capture.strftime("%H%M%S")
+    if _is_redundant_time_segment(base, time_part):
+        base = ""
     if base:
         return f"{date_part}-{time_part}-{base}{suffix}"
     return f"{date_part}-{time_part}{suffix}"
