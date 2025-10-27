@@ -16,6 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 import httpx
 from PIL import Image
+from pymediainfo import MediaInfo
 
 from src.settings import (
     CONVERT_LOCK_FILE,
@@ -206,21 +207,49 @@ def _probe_video_dimensions(input_path: Path) -> Optional[tuple[int, int]]:
         )
     except Exception as exc:  # pragma: no cover - depends on ffprobe availability
         logger.warning("Unable to read dimensions for %s: %s", input_path.name, exc)
-        return None
-    line = result.stdout.strip()
-    if not line:
-        return None
-    parts = line.split(",")
-    if len(parts) != 2:
-        return None
+    else:
+        line = result.stdout.strip()
+        if line:
+            parts = line.split(",")
+            if len(parts) == 2:
+                try:
+                    width = int(parts[0])
+                    height = int(parts[1])
+                except ValueError:
+                    pass
+                else:
+                    if width > 0 and height > 0:
+                        return width, height
+
+    # Fall back to pymediainfo if ffprobe is unavailable or returned invalid data.
     try:
-        width = int(parts[0])
-        height = int(parts[1])
-    except ValueError:
+        media_info = MediaInfo.parse(input_path)
+    except Exception as exc:  # pragma: no cover - optional dependency failures
+        logger.warning("Unable to read dimensions via MediaInfo for %s: %s", input_path.name, exc)
         return None
-    if width <= 0 or height <= 0:
-        return None
-    return width, height
+
+    for track in media_info.tracks:
+        if track.track_type != "Video":
+            continue
+        width = getattr(track, "width", None)
+        height = getattr(track, "height", None)
+        if width in (None, 0) or height in (None, 0):
+            continue
+        try:
+            width_int = int(width)
+            height_int = int(height)
+        except (TypeError, ValueError):
+            continue
+        rotation = getattr(track, "rotation", None)
+        try:
+            rotation_int = int(rotation) if rotation is not None else 0
+        except (TypeError, ValueError):
+            rotation_int = 0
+        if rotation_int % 180 != 0:
+            width_int, height_int = height_int, width_int
+        if width_int > 0 and height_int > 0:
+            return width_int, height_int
+    return None
 
 
 def _scaled_dimensions(width: int, height: int) -> Optional[tuple[int, int]]:
