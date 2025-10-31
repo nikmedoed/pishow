@@ -3,12 +3,14 @@ import logging
 import os
 import subprocess
 from pathlib import Path
-
-from PIL import Image
+from typing import Optional, TYPE_CHECKING
 
 from src.settings import VIDEO_BACKGROUND_SUFFIX
 
 logger = logging.getLogger("media converter")
+
+if TYPE_CHECKING:  # pragma: no cover - typing helpers
+    from PIL import Image
 
 
 def count_files_recursive(directory):
@@ -20,7 +22,7 @@ def count_files_recursive(directory):
     )
 
 
-def get_capture_date(img: Image.Image) -> datetime.datetime:
+def get_capture_date(img: "Image.Image") -> Optional[datetime.datetime]:
     """
     Attempt to extract the capture date from the image's EXIF data.
     Returns a datetime object if available, otherwise None.
@@ -38,7 +40,7 @@ def get_capture_date(img: Image.Image) -> datetime.datetime:
     return None
 
 
-def get_video_capture_date(input_path: Path) -> datetime.datetime:
+def get_video_capture_date(input_path: Path) -> Optional[datetime.datetime]:
     """
     Use ffprobe to extract the video's creation time from metadata.
     Attempts to parse the ISO8601 string so that if a timezone offset is present it is preserved.

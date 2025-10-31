@@ -5,26 +5,39 @@ import os
 import signal
 import time
 from datetime import datetime
+from importlib import import_module
 from threading import Lock, Thread
-from typing import Optional
+from types import ModuleType
+from typing import Optional, TYPE_CHECKING
 
 from src.settings import (
     CONVERT_LOCK_FILE,
     CONVERTER_THROTTLE_SECONDS,
 )
 from src.utils.conversion_state import get_state, update_state
-from src.utils.converter import Converter, STOP_EVENT
 from src.utils.converter_queue import ConversionQueue
 
 logger = logging.getLogger("media converter")
 
 _PROCESS_LOCK = Lock()
 _CONVERTER_THREAD: Optional[Thread] = None
+_CONVERTER_MODULE: Optional[ModuleType] = None
+
+if TYPE_CHECKING:  # pragma: no cover - typing helpers
+    from src.utils import converter as converter_module
+    from src.utils.converter import Converter as ConverterType
 
 
 def _thread_is_running() -> bool:
     thread = _CONVERTER_THREAD
     return thread is not None and thread.is_alive()
+
+
+def _load_converter_module() -> ModuleType:
+    global _CONVERTER_MODULE
+    if _CONVERTER_MODULE is None:
+        _CONVERTER_MODULE = import_module("src.utils.converter")
+    return _CONVERTER_MODULE
 
 
 def _read_lock_payload() -> Optional[dict]:
@@ -141,7 +154,8 @@ def start_conversion(port: Optional[str] = None) -> str:
             )
             return "Nothing to convert"
 
-        converter = Converter(port or "8000")
+        converter_module = _load_converter_module()
+        converter: ConverterType = converter_module.Converter(port or "8000")
 
         def _run_converter() -> None:
             try:
@@ -181,7 +195,8 @@ def request_restart() -> bool:
         state = get_state()
         state["status"] = "restarting"
         update_state(state)
-        STOP_EVENT.set()
+        converter_module = _load_converter_module()
+        converter_module.STOP_EVENT.set()
         return True
 
     signal_to_send = getattr(signal, "SIGUSR1", None) or signal.SIGTERM
