@@ -53,8 +53,17 @@ SYNCTHING_API_URL = os.getenv("SYNCTHING_API_URL", "http://localhost:8384")
 SYNCTHING_API_KEY = os.getenv("SYNCTHING_API_KEY")
 SYNCTHING_FOLDER_ID = os.getenv("SYNCTHING_FOLDER_ID")
 
+DEFAULT_COLLECTIONS_FALLBACK = [
+    "",
+    str(UPLOADED_DIR.relative_to(MEDIA_DIR)).replace("\\", "/"),
+]
+
 media_handler = MediaDict(MEDIA_DIR, VIDEO_BACKGROUND_SUFFIX, UPLOADED_RAW_DIR)
-device_queue_manager = DeviceQueueManager(media_handler, STORAGE_DIR)
+device_queue_manager = DeviceQueueManager(
+    media_handler,
+    STORAGE_DIR,
+    fallback_collections=DEFAULT_COLLECTIONS_FALLBACK,
+)
 
 TEMPLATES_DIR = Path(__file__).parent / "templates"
 templates = Jinja2Templates(directory=TEMPLATES_DIR)

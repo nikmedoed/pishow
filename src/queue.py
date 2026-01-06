@@ -21,6 +21,7 @@ class DeviceQueue:
         self.media_dict = media_dict
         self.storage_file = storage_dir / f"queue_{device_id}.pkl"
         self.shuffle = shuffle
+        self.allowed_keys: tuple[str, ...] | None = None
         self.queue = []
         self.load_queue()
         # Only update the queue if it is empty.
@@ -49,7 +50,7 @@ class DeviceQueue:
             logger.error(f"Error saving queue for {self.device_id}: {e}")
 
     def delete_dump(self):
-        """Удаляет файл очереди (если он существует) и очищает список очереди."""
+        """Delete queue file (if exists) and clear in-memory queue."""
         try:
             if self.storage_file.exists():
                 self.storage_file.unlink()
@@ -58,26 +59,51 @@ class DeviceQueue:
             logger.error(f"Error deleting queue file for device {self.device_id}: {e}")
         self.queue = []
 
+    def set_allowed_keys(self, keys: list[str] | tuple[str, ...] | None) -> None:
+        """
+        Restrict queue to provided keys (device collections).
+        If None is passed, all media are allowed.
+        """
+        new_allowed = None if keys is None else tuple(dict.fromkeys(keys))
+        changed = self.allowed_keys != new_allowed
+        self.allowed_keys = new_allowed
+        allowed_set = set(self.allowed_keys) if self.allowed_keys is not None else None
+        if allowed_set is not None:
+            self.queue = [k for k in self.queue if k in allowed_set]
+        if changed or not self.queue:
+            # Rebuild to reflect fresh selection.
+            self.queue = []
+            self.update_queue()
+        else:
+            self.save_queue()
+
     def update_queue(self, keys: list = None):
         """
         Update the queue with new keys.
         If keys is None, use all keys from media_dict.
-        Reverse the new keys, merge with the current queue (without duplicates),
-        and shuffle if enabled.
+        Queue is always rebuilt from allowed set to avoid order bias.
         """
+        allowed = list(self.allowed_keys) if self.allowed_keys is not None else list(self.media_dict.keys())
+
         if keys is None:
-            keys = list(self.media_dict.keys())
-        keys.reverse()
-        # Merge new keys with existing ones, avoiding duplicates.
-        combined = keys + [key for key in self.queue if key not in keys]
-        self.queue = combined
+            base_keys = list(dict.fromkeys(allowed))
+        else:
+            # Keep provided order for keys, then fill with remaining allowed ones.
+            base_keys = [k for k in dict.fromkeys(keys) if k in allowed]
+            remaining = [k for k in allowed if k not in base_keys]
+            base_keys.extend(remaining)
+
         if self.shuffle:
-            random.shuffle(self.queue)
+            self.queue = random.sample(base_keys, len(base_keys))
+        else:
+            self.queue = base_keys
+
         self.save_queue()
         logger.debug(f"Queue updated for device {self.device_id}: {len(self.queue)} items.")
 
     def get_next_counters(self, only_photo=False):
-        return self.get_next(only_photo=only_photo), len(self.media_dict) - len(self.queue), len(self.media_dict)
+        total_allowed = len(self.allowed_keys) if self.allowed_keys is not None else len(self.media_dict)
+        return self.get_next(only_photo=only_photo), total_allowed - len(self.queue), total_allowed
 
     def get_next(self, only_photo=False):
         """

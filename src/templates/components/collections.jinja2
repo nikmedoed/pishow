@@ -1,0 +1,24 @@
+{% macro render_collections(collections, selected, show_quick_start=False, quick_action=None) -%}
+    <div class="collections-tree">
+        {% for collection in collections %}
+            <div class="collection-row" style="--depth: {{ collection.depth }}">
+                <label class="collection-label">
+                    <input type="checkbox" name="collections" value="{{ collection.id }}"
+                           {% if collection.id in selected %}checked{% endif %}>
+                    <span class="collection-name">{{ collection.display_name }}</span>
+                    <span class="collection-path">{{ collection.display_path }}</span>
+                    <span class="collection-count">• {{ collection.files_count }} items</span>
+                </label>
+                {% if show_quick_start and quick_action %}
+                    <button type="submit" class="btn btn-ghost"
+                            formaction="{{ quick_action }}"
+                            formmethod="post"
+                            name="collection"
+                            value="{{ collection.id }}">
+                        Quick start
+                    </button>
+                {% endif %}
+            </div>
+        {% endfor %}
+    </div>
+{%- endmacro %}

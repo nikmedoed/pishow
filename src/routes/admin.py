@@ -28,6 +28,7 @@ async def admin_dashboard(request: Request):
 
     update_msg = request.session.pop("update_msg", None)
     conversion_state = get_conversion_status()
+    collections = md.get_collections_tree()
     response = templates.TemplateResponse("admin.jinja2", {
         "request": request,
         "devices": devices,
@@ -37,6 +38,9 @@ async def admin_dashboard(request: Request):
         "update_msg": update_msg,
         "device_queue_manager": device_queue_manager,
         "settings_checks": SETTINGS_CHECKS,
+        "collections": collections,
+        "default_collections": device_queue_manager.default_collections,
+        "collection_labels": device_queue_manager.get_collection_labels(),
         "upload_raw": count_files_recursive(UPLOADED_RAW_DIR),
         "uploaded": count_files_recursive(UPLOADED_DIR),
         "conversion_state": conversion_state,
@@ -54,6 +58,13 @@ async def update_content(request: Request):
     else:
         update_status = "No new media found."
     request.session["update_msg"] = update_status
+    return RedirectResponse(url="/admin", status_code=303)
+
+
+@router.post("/defaults/collections")
+async def update_default_collections(request: Request, collections: list[str] = Form([])):
+    device_queue_manager.set_default_collections(collections)
+    request.session["update_msg"] = "Default collections updated."
     return RedirectResponse(url="/admin", status_code=303)
 
 
@@ -77,7 +88,15 @@ async def admin_device_settings(request: Request, device_id: str):
         "settings": device_info.__dict__,
         "device_id": device_id,
         "form_action": f"/admin/{device_id}",
-        "settings_checks": SETTINGS_LIST
+        "settings_checks": SETTINGS_LIST,
+        "collections": device_queue_manager.media_dict.get_collections_tree(),
+        "selected_collections": device_queue_manager.get_active_collections(device_info),
+        "default_collections": device_queue_manager.default_collections,
+        "collection_labels": device_queue_manager.get_collection_labels(),
+        "uses_default_collections": device_queue_manager.uses_default_collections(device_info),
+        "show_default_controls": True,
+        "quick_start_action": f"/admin/{device_id}/collections/quick_start",
+        "reset_action": f"/admin/{device_id}/collections/reset",
     })
 
 
@@ -119,6 +138,23 @@ async def conversion_status() -> JSONResponse:
     return JSONResponse(get_conversion_status())
 
 
+@router.post("/{device_id}/collections/reset")
+async def reset_device_collections(request: Request, device_id: str):
+    device_queue_manager.set_device_collections(device_id, None)
+    request.session["update_msg"] = "Device collections reset to default."
+    return RedirectResponse(url="/admin", status_code=303)
+
+
+@router.post("/{device_id}/collections/quick_start")
+async def quick_start_collection(request: Request, device_id: str, collection: str | None = Form(None)):
+    # Replace selection with a single collection and rebuild queue.
+    collection = collection or ""
+    device_queue_manager.set_device_collections(device_id, [collection])
+    label = device_queue_manager.get_collection_labels().get(collection, collection or "/")
+    request.session["update_msg"] = f"Started collection {label} for device."
+    return RedirectResponse(url="/admin", status_code=303)
+
+
 @router.post("/{device_id}")
 async def update_admin_device_settings(
         request: Request,
@@ -130,7 +166,8 @@ async def update_admin_device_settings(
         show_counters: bool = Form(False),
         show_names: bool = Form(False),
         video_background: str = Form("static"),
-        name: str = Form("")
+        name: str = Form(""),
+        collections: list[str] = Form([])
 ):
     photo_time = max(photo_time, 5)
     device_queue_manager.update_device_info(
@@ -144,4 +181,5 @@ async def update_admin_device_settings(
         show_names=show_names,
         name=name
     )
+    device_queue_manager.set_device_collections(device_id, collections, keep_default_if_same=True)
     return RedirectResponse(url="/admin", status_code=303)

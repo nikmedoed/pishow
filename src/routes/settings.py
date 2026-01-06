@@ -17,7 +17,15 @@ async def device_settings(request: Request, device_id: str = Cookie(None)):
         "settings": device_info.__dict__,
         "device_id": device_id,
         "form_action": "/go",
-        "settings_checks": SETTINGS_LIST
+        "settings_checks": SETTINGS_LIST,
+        "collections": device_queue_manager.media_dict.get_collections_tree(),
+        "selected_collections": device_queue_manager.get_active_collections(device_info),
+        "default_collections": device_queue_manager.default_collections,
+        "collection_labels": device_queue_manager.get_collection_labels(),
+        "uses_default_collections": device_queue_manager.uses_default_collections(device_info),
+        "show_default_controls": True,
+        "quick_start_action": "/go/collections/quick_start",
+        "reset_action": "/go/collections/reset",
     })
 
 
@@ -32,7 +40,8 @@ async def update_device_settings(
         show_names: bool = Form(False),
         video_background: str = Form("static"),
         name: str = Form(""),
-        device_id: str = Cookie(None)
+        device_id: str = Cookie(None),
+        collections: list[str] = Form([])
 ):
     device_id = get_device_id(request, device_id)
     photo_time = max(photo_time, 5)
@@ -52,4 +61,24 @@ async def update_device_settings(
         name=name
 
     )
+    device_queue_manager.set_device_collections(device_id, collections, keep_default_if_same=True)
+    return RedirectResponse(url="/", status_code=303)
+
+
+@router.post("/collections/reset")
+async def reset_device_collections(request: Request, device_id: str = Cookie(None)):
+    device_id = get_device_id(request, device_id)
+    device_queue_manager.set_device_collections(device_id, None)
+    return RedirectResponse(url="/go", status_code=303)
+
+
+@router.post("/collections/quick_start")
+async def quick_start_collection(
+        request: Request,
+        collection: str | None = Form(None),
+        device_id: str = Cookie(None),
+):
+    device_id = get_device_id(request, device_id)
+    device_queue_manager.set_device_collections(device_id, [collection or ""])
+    # Redirect straight to slideshow
     return RedirectResponse(url="/", status_code=303)

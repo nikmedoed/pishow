@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1"> <!-- Добавлен для мобильной адаптации -->
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Admin Dashboard</title>
     <link href="/static/settings.css" rel="stylesheet"/>
 </head>
@@ -10,6 +10,7 @@
 <a href="/" class="admin-link">Start show</a>
 <div class="container">
     <h1>Admin Dashboard</h1>
+    {% from "components/collections.jinja2" import render_collections %}
     <div class="media-summary">
         Total media: {{ media_total }} | Photos: {{ media_photos }} | Videos: {{ media_videos }}
     </div>
@@ -47,27 +48,27 @@
                 </div>
             </div>
             <div class="conversion-row conversion-summary">
-                <div class="conversion-summary-left" id="conversion-counts">{{ processed_with_current }}/{{ total }} • осталось {{ remaining }}</div>
+                <div class="conversion-summary-left" id="conversion-counts">{{ processed_with_current }}/{{ total }} • left {{ remaining }}</div>
                 <div class="conversion-summary-right">
                     <span id="conversion-progress-overall">{{ overall_percent|round(1) }}%</span>
                     <span class="conversion-divider">•</span>
-                    <span id="conversion-progress-file">{% if file_percent is not none %}файл {{ file_percent|round(1) }}%{% else %}файл —{% endif %}</span>
+                    <span id="conversion-progress-file">{% if file_percent is not none %}file {{ file_percent|round(1) }}%{% else %}file —{% endif %}</span>
                     <span class="conversion-divider">•</span>
                     <span id="conversion-eta">
                         {% if eta_seconds is not none %}
-                            осталось {{ eta_seconds|round(1) }} c
+                            left {{ eta_seconds|round(1) }} s
                         {% else %}
-                            осталось —
+                            left —
                         {% endif %}
                     </span>
                 </div>
             </div>
             <div class="conversion-row conversion-updated">
-                <span class="conversion-label">Обновлено</span>
+                <span class="conversion-label">Updated</span>
                 <span class="conversion-updated-value" id="conversion-updated">{{ conversion_state.last_update or '—' }}</span>
             </div>
             <div class="conversion-row conversion-current">
-                <span class="conversion-label">Текущий файл</span>
+                <span class="conversion-label">Current file</span>
                 <span class="conversion-current-value" id="conversion-current-file">{{ current.file or '—' }}</span>
             </div>
             <div class="conversion-errors" id="conversion-errors">
@@ -109,6 +110,14 @@
         <span id="progress-text">0%</span>
     </div>
 
+    <div class="list-label">Default collections (for new devices)</div>
+    <form class="collections-form" method="post" action="/admin/defaults/collections">
+        {{ render_collections(collections, default_collections, show_quick_start=False) }}
+        <div class="form-actions">
+            <button type="submit" class="btn btn-edit">Save default</button>
+        </div>
+    </form>
+
     <div class="list-label">Devices List</div>
     <div class="card-container">
         {% for device_id, info in devices.items() %}
@@ -121,6 +130,16 @@
                     <p>
                         <strong>Queue items:</strong>
                         {{ (device_queue_manager.device_queues[device_id].queue|length) if device_id in device_queue_manager.device_queues else 0 }}
+                    </p>
+                    {% set active_cols = device_queue_manager.get_active_collections(info) %}
+                    <p class="collections-summary">
+                        <strong>Collections:</strong>
+                        {% for cid in active_cols %}
+                            <span class="collection-tag">{{ collection_labels.get(cid, cid or '/') }}</span>
+                        {% endfor %}
+                        {% if info.collections is none %}
+                            <span class="collection-tag collection-tag-default">default</span>
+                        {% endif %}
                     </p>
 
                     <div class="settings-list">
