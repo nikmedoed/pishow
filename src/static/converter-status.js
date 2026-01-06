@@ -35,9 +35,9 @@ document.addEventListener('DOMContentLoaded', function () {
         const minutes = Math.floor((rounded % 3600) / 60);
         const secs = rounded % 60;
         const parts = [];
-        if (hours) parts.push(hours + 'ч');
-        if (minutes) parts.push(minutes + 'м');
-        parts.push(secs + 'с');
+    if (hours) parts.push(hours + 'h');
+    if (minutes) parts.push(minutes + 'm');
+    parts.push(secs + 's');
         return parts.join(' ');
     }
 
@@ -97,18 +97,18 @@ document.addEventListener('DOMContentLoaded', function () {
             overallText.textContent = formatNumber(overallPercent, 1) + '%';
         }
         if (fileText) {
-            fileText.textContent = filePercent !== null ? 'файл ' + formatNumber(filePercent, 1) + '%' : 'файл —';
+            fileText.textContent = filePercent !== null ? 'file ' + formatNumber(filePercent, 1) + '%' : 'file —';
         }
 
         if (countsText) {
-            countsText.textContent = processedWithCurrent + '/' + total + ' • осталось ' + remainingRounded;
+            countsText.textContent = processedWithCurrent + '/' + total + ' • left ' + remainingRounded;
         }
 
         if (etaText) {
             if (current) {
-                etaText.textContent = 'осталось ' + formatEta(etaSeconds);
+                etaText.textContent = 'left ' + formatEta(etaSeconds);
             } else {
-                etaText.textContent = 'осталось —';
+                etaText.textContent = 'left —';
             }
         }
 

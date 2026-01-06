@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1"> <!-- Добавлен для мобильной адаптации -->
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Admin Dashboard</title>
     <link href="/static/settings.css" rel="stylesheet"/>
 </head>
@@ -47,27 +47,27 @@
                 </div>
             </div>
             <div class="conversion-row conversion-summary">
-                <div class="conversion-summary-left" id="conversion-counts">{{ processed_with_current }}/{{ total }} • осталось {{ remaining }}</div>
+                <div class="conversion-summary-left" id="conversion-counts">{{ processed_with_current }}/{{ total }} • left {{ remaining }}</div>
                 <div class="conversion-summary-right">
                     <span id="conversion-progress-overall">{{ overall_percent|round(1) }}%</span>
                     <span class="conversion-divider">•</span>
-                    <span id="conversion-progress-file">{% if file_percent is not none %}файл {{ file_percent|round(1) }}%{% else %}файл —{% endif %}</span>
+                    <span id="conversion-progress-file">{% if file_percent is not none %}file {{ file_percent|round(1) }}%{% else %}file —{% endif %}</span>
                     <span class="conversion-divider">•</span>
                     <span id="conversion-eta">
                         {% if eta_seconds is not none %}
-                            осталось {{ eta_seconds|round(1) }} c
+                            left {{ eta_seconds|round(1) }} s
                         {% else %}
-                            осталось —
+                            left —
                         {% endif %}
                     </span>
                 </div>
             </div>
             <div class="conversion-row conversion-updated">
-                <span class="conversion-label">Обновлено</span>
+                <span class="conversion-label">Updated</span>
                 <span class="conversion-updated-value" id="conversion-updated">{{ conversion_state.last_update or '—' }}</span>
             </div>
             <div class="conversion-row conversion-current">
-                <span class="conversion-label">Текущий файл</span>
+                <span class="conversion-label">Current file</span>
                 <span class="conversion-current-value" id="conversion-current-file">{{ current.file or '—' }}</span>
             </div>
             <div class="conversion-errors" id="conversion-errors">

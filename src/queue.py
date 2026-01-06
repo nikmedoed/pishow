@@ -49,7 +49,7 @@ class DeviceQueue:
             logger.error(f"Error saving queue for {self.device_id}: {e}")
 
     def delete_dump(self):
-        """Удаляет файл очереди (если он существует) и очищает список очереди."""
+        """Delete queue file (if exists) and clear in-memory queue."""
         try:
             if self.storage_file.exists():
                 self.storage_file.unlink()

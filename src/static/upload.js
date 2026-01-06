@@ -28,14 +28,14 @@ document.addEventListener('DOMContentLoaded', function () {
             if (xhr.status === 303 || xhr.status === 200) {
                 window.location.href = '/admin';
             } else {
-                alert('Ошибка загрузки: ' + xhr.responseText);
+                alert('Upload error: ' + xhr.responseText);
                 document.getElementById('upload-progress').value = 0;
                 document.getElementById('progress-text').innerText = '0%';
             }
         };
 
         xhr.onerror = function () {
-            alert('Произошла ошибка при загрузке файлов.');
+            alert('An error occurred while uploading files.');
         };
 
         document.getElementById('progress-container').style.display = 'block';
