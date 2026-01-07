@@ -10,6 +10,7 @@
 <a href="/" class="admin-link">Start show</a>
 <div class="container">
     <h1>Admin Dashboard</h1>
+    {% from "components/collections.jinja2" import render_collections %}
     <div class="media-summary">
         Total media: {{ media_total }} | Photos: {{ media_photos }} | Videos: {{ media_videos }}
     </div>
@@ -109,6 +110,14 @@
         <span id="progress-text">0%</span>
     </div>
 
+    <div class="list-label">Default collections (for new devices)</div>
+    <form class="collections-form" method="post" action="/admin/defaults/collections">
+        {{ render_collections(collections, default_collections, show_quick_start=False) }}
+        <div class="form-actions">
+            <button type="submit" class="btn btn-edit">Save default</button>
+        </div>
+    </form>
+
     <div class="list-label">Devices List</div>
     <div class="card-container">
         {% for device_id, info in devices.items() %}
@@ -121,6 +130,16 @@
                     <p>
                         <strong>Queue items:</strong>
                         {{ (device_queue_manager.device_queues[device_id].queue|length) if device_id in device_queue_manager.device_queues else 0 }}
+                    </p>
+                    {% set active_cols = device_queue_manager.get_active_collections(info) %}
+                    <p class="collections-summary">
+                        <strong>Collections:</strong>
+                        {% for cid in active_cols %}
+                            <span class="collection-tag">{{ collection_labels.get(cid, cid or '/') }}</span>
+                        {% endfor %}
+                        {% if info.collections is none %}
+                            <span class="collection-tag collection-tag-default">default</span>
+                        {% endif %}
                     </p>
 
                     <div class="settings-list">

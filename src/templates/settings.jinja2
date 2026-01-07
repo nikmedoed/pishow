@@ -13,6 +13,7 @@
         <p><strong>ID:</strong> {{ device_id }} <strong>ip:</strong> {{ settings.ip_address }}</p>
         <p><strong>User Agent:</strong> {{ settings.user_agent }}</p>
     </div>
+    {% from "components/collections.jinja2" import render_collections %}
     <form method="post" action="{{ form_action }}">
         <label for="device_name">Device Name:</label>
         <input type="text" id="device_name" name="name" value="{{ settings.name }}" placeholder="Enter device name">
@@ -44,7 +45,35 @@
             </label>
         </div>
 
-        <button type="submit" class="btn">Save Settings</button>
+        <div class="collections-header">
+            <div>
+                <p class="collection-title">Collections (folders)</p>
+                <p class="collection-hint">Each folder is a separate collection. Only files directly inside a selected folder are used (no subfolders).</p>
+                {% set ns = namespace(defs=[]) %}
+                {% for cid in default_collections %}
+                    {% set _ = ns.defs.append(collection_labels.get(cid, cid or '/')) %}
+                {% endfor %}
+                <p class="collection-default">Default for new devices: {{ ns.defs|join(', ') }}</p>
+                <p class="collection-active">
+                    Current: {% if uses_default_collections %}default{% else %}custom selection{% endif %}
+                </p>
+            </div>
+            <div class="collections-actions">
+                {% if show_default_controls %}
+                    <button type="submit" class="btn btn-clear"
+                            formaction="{{ reset_action }}"
+                            formmethod="post">
+                        Reset to default
+                    </button>
+                {% endif %}
+            </div>
+        </div>
+
+        {{ render_collections(collections, selected_collections, show_quick_start=True, quick_action=quick_start_action) }}
+
+        <div class="form-actions">
+            <button type="submit" class="btn">Save Settings</button>
+        </div>
     </form>
     <a href="/admin" class="admin-link">Admin panel</a>
 </div>

@@ -261,6 +261,147 @@ input[type="text"] {
     align-items: center;
 }
 
+.collections-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    margin: 10px 0;
+}
+
+.collection-title {
+    margin: 0;
+    font-weight: 700;
+}
+
+.collection-hint,
+.collection-default,
+.collection-active {
+    margin: 4px 0;
+    color: #555;
+    font-size: 0.95em;
+}
+
+.collections-tree {
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    background: #fafafa;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.collection-row {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 8px 10px 8px calc((var(--depth, 0) * 14px) + 10px);
+    background: #fff;
+    border: 1px solid #e9e9e9;
+    border-radius: 6px;
+}
+
+.collection-top {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    justify-content: flex-start;
+    flex-wrap: nowrap;
+}
+
+.collection-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+    font-size: 1em;
+    min-width: 0;
+}
+
+.collection-name {
+    font-weight: 700;
+    overflow-wrap: anywhere;
+}
+
+.collection-inline-path {
+    color: #666;
+    font-size: 0.95em;
+    margin-left: 8px;
+    white-space: nowrap;
+}
+
+.collection-path {
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+    color: #666;
+    font-size: 0.9em;
+    overflow-wrap: anywhere;
+}
+
+.collection-count {
+    color: #666;
+    font-size: 0.95em;
+    margin-left: auto;
+    white-space: nowrap;
+}
+
+.collection-bottom {
+    display: none;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding-left: 26px;
+}
+
+.collection-quick {
+    margin-left: auto;
+}
+
+.collection-quick-mobile {
+    display: none;
+}
+
+.collection-quick-desktop {
+    display: inline-flex;
+}
+
+.collections-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.form-actions {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.btn-ghost {
+    background: transparent;
+    color: #5f14a1;
+    border: 1px solid #d3c6f1;
+}
+
+.collections-summary {
+    margin: 6px 0;
+}
+
+.collection-tag {
+    display: inline-block;
+    padding: 2px 6px;
+    margin-right: 4px;
+    background: #eef2ff;
+    color: #3b3b6d;
+    border-radius: 10px;
+    font-size: 0.85em;
+}
+
+.collection-tag-default {
+    background: #e6f4ea;
+    color: #215732;
+}
+
 .conversion-wrapper {
     margin-bottom: 20px;
 }
@@ -425,6 +566,48 @@ input[type="text"] {
 }
 
 @media (max-width: 600px) {
+    .collections-header {
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .collection-row {
+        padding-left: 12px;
+    }
+
+    .collection-top {
+        flex-wrap: wrap;
+    }
+
+    .collection-label {
+        width: 100%;
+    }
+
+    .collection-count {
+        margin-left: 0;
+    }
+
+    .collection-inline-path {
+        display: none;
+    }
+
+    .collection-bottom {
+        display: flex;
+        padding-left: 24px;
+    }
+
+    .collection-quick-desktop {
+        display: none;
+    }
+
+    .collection-quick-mobile {
+        display: inline-flex;
+    }
+
+    .btn-ghost {
+        padding: 6px 10px;
+    }
+
     .card {
         flex-direction: column;
         align-items: flex-start;
