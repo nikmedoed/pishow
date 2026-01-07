@@ -7,6 +7,7 @@ from fastapi.templating import Jinja2Templates
 
 from src.device_manager import DeviceQueueManager
 from src.media import MediaDict
+from src.utils.media_collections import COLLECTION_ROOT_ID, collection_id_from_dir
 
 load_dotenv()
 
@@ -53,8 +54,16 @@ SYNCTHING_API_URL = os.getenv("SYNCTHING_API_URL", "http://localhost:8384")
 SYNCTHING_API_KEY = os.getenv("SYNCTHING_API_KEY")
 SYNCTHING_FOLDER_ID = os.getenv("SYNCTHING_FOLDER_ID")
 
-media_handler = MediaDict(MEDIA_DIR, VIDEO_BACKGROUND_SUFFIX, UPLOADED_RAW_DIR)
-device_queue_manager = DeviceQueueManager(media_handler, STORAGE_DIR)
+media_handler = MediaDict(MEDIA_DIR, VIDEO_BACKGROUND_SUFFIX, UPLOADED_RAW_DIR, metadata_cache_file=STORAGE_DIR / "metadata.pkl")
+
+_default_collections = [COLLECTION_ROOT_ID]
+try:
+    uploaded_id = collection_id_from_dir(MEDIA_DIR, UPLOADED_DIR)
+    if uploaded_id not in _default_collections:
+        _default_collections.append(uploaded_id)
+except Exception:
+    pass
+device_queue_manager = DeviceQueueManager(media_handler, STORAGE_DIR, default_collections=_default_collections)
 
 TEMPLATES_DIR = Path(__file__).parent / "templates"
 templates = Jinja2Templates(directory=TEMPLATES_DIR)

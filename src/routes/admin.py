@@ -25,6 +25,7 @@ async def admin_dashboard(request: Request):
     media_total = len(md)
     media_photos = len(md.photo_keys) if md.photo_keys else 0
     media_videos = len(md.video_keys) if md.video_keys else 0
+    collections, collection_labels = device_queue_manager.list_collections()
 
     update_msg = request.session.pop("update_msg", None)
     conversion_state = get_conversion_status()
@@ -41,8 +42,19 @@ async def admin_dashboard(request: Request):
         "uploaded": count_files_recursive(UPLOADED_DIR),
         "conversion_state": conversion_state,
         "conversion_active": is_conversion_running() or conversion_state.get("status") in {"running", "scheduled", "restarting"},
+        "collections": collections,
+        "collection_labels": collection_labels,
+        "default_collections": device_queue_manager.default_collections,
     })
     return response
+
+
+@router.post("/defaults/collections")
+async def update_default_collections(request: Request, collections: list[str] = Form(None)):
+    selected = collections or []
+    device_queue_manager.set_default_collections(selected)
+    request.session["update_msg"] = "Default collections updated."
+    return RedirectResponse(url="/admin", status_code=303)
 
 
 @router.post("/update_content")
@@ -72,13 +84,37 @@ async def delete_device(request: Request, device_id: str = Form(...)):
 @router.get("/{device_id}", response_class=HTMLResponse)
 async def admin_device_settings(request: Request, device_id: str):
     device_info = device_queue_manager.get_device_info(device_id)
+    collections, collection_labels = device_queue_manager.list_collections()
+    selected_collections = device_info.collections or device_queue_manager.default_collections
     return templates.TemplateResponse("settings.jinja2", {
         "request": request,
         "settings": device_info.__dict__,
         "device_id": device_id,
         "form_action": f"/admin/{device_id}",
-        "settings_checks": SETTINGS_LIST
+        "settings_checks": SETTINGS_LIST,
+        "collections": collections,
+        "collection_labels": collection_labels,
+        "selected_collections": selected_collections,
+        "default_collections": device_queue_manager.default_collections,
+        "uses_default_collections": device_info.collections is None,
+        "show_default_controls": device_info.collections is not None,
+        "reset_action": f"/admin/{device_id}/collections/reset",
+        "quick_start_action": f"/admin/{device_id}/collections/quick",
     })
+
+
+@router.post("/{device_id}/collections/reset")
+async def reset_device_collections(request: Request, device_id: str):
+    device_queue_manager.update_device_info(device_id, collections=None)
+    request.session["update_msg"] = "Collections reset to default."
+    return RedirectResponse(url="/admin", status_code=303)
+
+
+@router.post("/{device_id}/collections/quick")
+async def quick_start_device_collection(request: Request, device_id: str, collection: str = Form(...)):
+    device_queue_manager.update_device_info(device_id, collections=[collection])
+    request.session["update_msg"] = "Quick start collection saved."
+    return RedirectResponse(url="/admin", status_code=303)
 
 
 @router.post("/upload")
@@ -130,7 +166,8 @@ async def update_admin_device_settings(
         show_counters: bool = Form(False),
         show_names: bool = Form(False),
         video_background: str = Form("static"),
-        name: str = Form("")
+        name: str = Form(""),
+        collections: list[str] = Form(None),
 ):
     photo_time = max(photo_time, 5)
     device_queue_manager.update_device_info(
@@ -142,6 +179,7 @@ async def update_admin_device_settings(
         show_counters=show_counters,
         video_background=video_background == "video",
         show_names=show_names,
-        name=name
+        name=name,
+        collections=collections,
     )
     return RedirectResponse(url="/admin", status_code=303)
