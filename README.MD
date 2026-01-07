@@ -5,7 +5,6 @@ tablets. It delivers a simple HTML page that continuously cycles through images 
 no reliance on JavaScript (using meta refresh instead), Pishow is ideal for browsers with limited or no scripting
 support.
 
----
 
 ## Features
 
@@ -45,8 +44,34 @@ support.
   converted—images are compressed and resized (up to 3840×2160 at ~60% quality) and videos re-encoded to MP4—using
   FFmpeg and supporting libraries.  
   *Dependencies: ffmpeg, pillow-heif, httpx (installed via requirements.txt).*
+- **Collections with deduplication:**  
+  Media is grouped by folders (each folder = collection, subfolders are separate collections). Devices and defaults pick
+  collections independently; hidden folders/files (starting with `.`) and video cover files are ignored. Duplicate files
+  across collections are served once thanks to hardlink-based deduplication (see below).
 
----
+
+## Collections
+
+- Each folder in `MEDIA_DIR` is a collection; subfolders are separate collections.
+- In the UI (admin or `/go`) you can choose collections per device, reset to default, or quick-start a single collection
+  (saves the device selection and rebuilds the queue).
+- Default collections are configured in the admin panel (by default root `/` + `uploaded` if present).
+- Hidden folders/files (start with `.`) and temporary video cover files are ignored for collections and counts.
+
+
+## Deduplication (hard links)
+
+- Goal: if the same file lives in multiple collections, show/store a single instance via hardlinks.
+- Flow:
+  - Runs in background after idle: 15 minutes without changes (or 60 seconds if `DEBUG=true`); override with `DEDUP_IDLE_SECONDS`.
+  - Any file change (watchdog, manual refresh in admin) sets a “changed” marker.
+  - Pass hashes files (SHA-256); keeps the first, replaces the rest with a **hardlink** to it.
+  - Skips: hidden files/folders, video cover suffix files, `uploaded_raw`, existing links/symlinks.
+  - If conversion is active (`storage/converter.lock`), dedup won’t start.
+  - On service start, dedup will run after the first interval even if no changes were seen (to catch pre-existing dupes).
+- Storage: hardlinks have no “primary” file — all names point to the same content. File explorers may show full size per
+  name, but disk space is used once. Check via `fsutil hardlink list <file>` (Windows) or `stat`/`ls -li` (Linux).
+
 
 ## Why Pishow?
 
@@ -57,7 +82,6 @@ devices. Pishow offers a minimalist, resource-efficient alternative by using:
 - **Customizable, Device-Specific Settings:** Each device can be tailored to its own capabilities.
 - **Low Resource Consumption:** Designed to run smoothly on legacy hardware.
 
----
 
 ## Supported Formats & Media Recommendations
 
@@ -71,7 +95,6 @@ devices. Pishow offers a minimalist, resource-efficient alternative by using:
 > **Note:** Video duration detection may not work perfectly for all formats. Converting media with tools like `ffmpeg`
 > is recommended for non-standard formats.
 
----
 
 ## Tested Devices
 
@@ -84,7 +107,6 @@ devices. Pishow offers a minimalist, resource-efficient alternative by using:
 tested TV restarted when attempting to display a panorama image with a resolution of 12,000+ pixels and a size over
 24MB.
 
----
 
 ## Preparing Your Media
 
@@ -103,7 +125,6 @@ For optimal performance, consider the following tips:
 > **Tip:** If your device struggles with rotated videos (a common issue with mobile recordings), re-encoding will ensure
 > correct rotation and aspect ratio since many decoders do not honor the rotate attribute.
 
----
 
 ## Installation & Deployment
 
@@ -171,7 +192,6 @@ To run Pishow automatically on startup:
    sudo systemctl start pishow.service
    ```
 
----
 
 ## Update Script
 
@@ -183,26 +203,22 @@ Pishow includes an update script to simplify the update process. Simply run:
 
 This script will pull the latest changes from the repository and restart the service if necessary.
 
----
 
 ## Feedback & Contributions
 
 If you find Pishow useful or have suggestions for improvement, please open an issue or submit a pull request.
 
----
 
 ## Development Ideas
 
 The first version was based on JavaScript with modern styles and transition effects. This version is minimalistic. If
 you’d like to implement a modern mode with advanced features, feel free to fork the project and contribute.
 
----
 
 ## Acknowledgements
 
 Pishow leverages [iphone-inline-video](https://github.com/fregante/iphone-inline-video) for improved video support on
 older iOS devices. Many thanks to fregante and all contributors!
 
----
 
 *This README is current as of the latest update. Contributions and feedback are welcome.*
