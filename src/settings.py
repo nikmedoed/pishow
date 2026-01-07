@@ -7,6 +7,7 @@ from fastapi.templating import Jinja2Templates
 
 from src.device_manager import DeviceQueueManager
 from src.media import MediaDict
+from src.utils.dedup import Deduplicator
 from src.utils.media_collections import COLLECTION_ROOT_ID, collection_id_from_dir
 
 load_dotenv()
@@ -55,6 +56,13 @@ SYNCTHING_API_KEY = os.getenv("SYNCTHING_API_KEY")
 SYNCTHING_FOLDER_ID = os.getenv("SYNCTHING_FOLDER_ID")
 
 media_handler = MediaDict(MEDIA_DIR, VIDEO_BACKGROUND_SUFFIX, UPLOADED_RAW_DIR, metadata_cache_file=STORAGE_DIR / "metadata.pkl")
+deduplicator = Deduplicator(
+    MEDIA_DIR,
+    background_suffix=VIDEO_BACKGROUND_SUFFIX,
+    skip_dir=UPLOADED_RAW_DIR,
+    idle_seconds=int(os.getenv("DEDUP_IDLE_SECONDS", "60" if os.getenv("DEBUG") else "900")),
+    lock_file=CONVERT_LOCK_FILE,
+)
 
 _default_collections = [COLLECTION_ROOT_ID]
 try:

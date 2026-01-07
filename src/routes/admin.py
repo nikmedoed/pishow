@@ -4,7 +4,7 @@ from fastapi.responses import JSONResponse
 from starlette.responses import RedirectResponse, HTMLResponse
 
 from src.device_manager import SETTINGS_LIST
-from src.settings import device_queue_manager, templates, UPLOADED_RAW_DIR, UPLOADED_DIR
+from src.settings import device_queue_manager, templates, UPLOADED_RAW_DIR, UPLOADED_DIR, deduplicator
 from src.utils.converter_control import (
     get_conversion_status,
     is_conversion_running,
@@ -65,6 +65,7 @@ async def update_content(request: Request):
         update_status = f"New media added: {len(new_keys)}"
     else:
         update_status = "No new media found."
+    deduplicator.mark_change()
     request.session["update_msg"] = update_status
     return RedirectResponse(url="/admin", status_code=303)
 

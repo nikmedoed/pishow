@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
-from src.settings import MEDIA_DIR, MEDIA_PATH
+from src.settings import MEDIA_DIR, MEDIA_PATH, deduplicator
 from src.utils.converter_watchdog import ConversionWatchdog
 from src.utils.watchdg import observer_thread, observer
 
@@ -24,6 +24,7 @@ async def lifespan(app: FastAPI):
     observer_thread.start()
     logging.info("Media observer started.")
     conversion_watchdog = ConversionWatchdog()
+    deduplicator.start()
 
     async def kickoff_conversion() -> None:
         await asyncio.sleep(0)
@@ -35,6 +36,7 @@ async def lifespan(app: FastAPI):
     observer.stop()
     observer.join()
     logging.info("Media observer stopped.")
+    deduplicator.stop()
     conversion_watchdog.stop()
 
 

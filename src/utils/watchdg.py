@@ -5,7 +5,7 @@ from threading import Thread
 from watchdog.events import FileSystemEventHandler
 from watchdog.observers import Observer
 
-from src.settings import CONVERT_LOCK_FILE, media_handler, MEDIA_DIR, UPLOADED_RAW_DIR
+from src.settings import CONVERT_LOCK_FILE, media_handler, MEDIA_DIR, UPLOADED_RAW_DIR, deduplicator
 
 logger = logging.getLogger("Watchdog")
 
@@ -24,12 +24,14 @@ class MediaFolderHandler(FileSystemEventHandler):
             return
         logger.debug("Watchdog syncing after create: %s", event.src_path)
         self.media_dict.sync_files()
+        deduplicator.mark_change()
 
     def on_deleted(self, event):
         if event.is_directory or self._should_ignore(event) or CONVERT_LOCK_FILE.exists():
             return
         logger.debug("Watchdog syncing after delete: %s", event.src_path)
         self.media_dict.sync_files()
+        deduplicator.mark_change()
 
 
 event_handler = MediaFolderHandler(media_handler)
