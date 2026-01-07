@@ -71,6 +71,7 @@ support.
   - On service start, dedup will run after the first interval even if no changes were seen (to catch pre-existing dupes).
 - Storage: hardlinks have no “primary” file — all names point to the same content. File explorers may show full size per
   name, but disk space is used once. Check via `fsutil hardlink list <file>` (Windows) or `stat`/`ls -li` (Linux).
+  - Hardlinks require the same filesystem/volume; if files are on different devices/mounts, dedup logs a skip.
 
 
 ## Why Pishow?

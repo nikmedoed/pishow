@@ -81,6 +81,12 @@ class Deduplicator:
             if self.run_on_start and self._last_change is None:
                 # Force a run soon after start to catch pre-existing changes.
                 self._last_change = time.time() - self.idle_seconds
+            logger.info(
+                "Deduplicator started (idle=%ss, skip_dir=%s, background_suffix=%s)",
+                self.idle_seconds,
+                self.skip_dir,
+                self.background_suffix,
+            )
             self._runner_thread.start()
 
     def stop(self):
@@ -118,9 +124,11 @@ class Deduplicator:
             logger.info("Deduplication started.")
             hash_to_primary: dict[str, Path] = {}
             replaced = 0
+            duplicates_seen = 0
             scanned = 0
 
-            for path in _iter_media_files(self.media_dir, self.background_suffix, self.skip_dir):
+            files = sorted(_iter_media_files(self.media_dir, self.background_suffix, self.skip_dir))
+            for path in files:
                 scanned += 1
                 try:
                     file_hash = _file_hash(path)
@@ -133,11 +141,30 @@ class Deduplicator:
                     hash_to_primary[file_hash] = path
                     continue
 
+                duplicates_seen += 1
+
                 if _same_file(primary, path):
+                    logger.debug("Duplicate already linked: %s -> %s", path, primary)
                     continue
 
                 if not primary.exists():
                     hash_to_primary[file_hash] = path
+                    continue
+
+                # Hardlinks require same filesystem.
+                try:
+                    primary_stat = primary.stat()
+                    path_stat = path.stat()
+                except FileNotFoundError:
+                    continue
+                if primary_stat.st_dev != path_stat.st_dev:
+                    logger.warning(
+                        "Skip dedup across filesystems: %s (dev %s) vs %s (dev %s)",
+                        path,
+                        path_stat.st_dev,
+                        primary,
+                        primary_stat.st_dev,
+                    )
                     continue
 
                 temp_path = path.with_suffix(path.suffix + ".dedup_tmp")
@@ -152,6 +179,11 @@ class Deduplicator:
                     if temp_path.exists():
                         temp_path.rename(path)
 
-            logger.info("Deduplication finished: scanned %s files, replaced %s duplicates.", scanned, replaced)
+            logger.info(
+                "Deduplication finished: scanned %s files, duplicates found %s, replaced %s duplicates.",
+                scanned,
+                duplicates_seen,
+                replaced,
+            )
         finally:
             self._lock.release()

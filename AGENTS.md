@@ -15,6 +15,7 @@
 - Run: background thread after `DEDUP_IDLE_SECONDS` idle (default 900s; if `DEBUG=true` — 60s). Skips if `storage/converter.lock` exists.
 - Algorithm: SHA-256 hash; first file stays, others replaced with hardlink. Skips hidden files/folders, symlinks/hardlinks, video previews, `uploaded_raw`.
 - Hardlinks are peer names; explorer shows full size per name, real disk usage is shared. Check via `fsutil hardlink list <file>` (Win) or `ls -li`/`stat` (Linux).
+  - Hardlinks need the same filesystem/volume; cross-device duplicates are skipped (logged).
 
 ## Config snippets
 - Env: `DEDUP_IDLE_SECONDS`, `DEBUG` (sets 60s idle), `MEDIA_DIR`, `VIDEO_BACKGROUND_SUFFIX`.
