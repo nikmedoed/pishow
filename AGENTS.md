@@ -13,7 +13,7 @@
 - Goal: a file present in multiple collections is shown/stored once via **hardlink**.
 - Triggers: `mark_change` on watchdog events (create/delete) and manual refresh in admin. On start, the service premarks “changed” to catch preexisting dupes.
 - Run: background thread after `DEDUP_IDLE_SECONDS` idle (default 900s; if `DEBUG=true` — 60s). Skips if `storage/converter.lock` exists.
-- Algorithm: SHA-256 hash; first file stays, others replaced with hardlink. Skips hidden files/folders, symlinks/hardlinks, video previews, `uploaded_raw`.
+- Algorithm: SHA-256 hash; first file stays, others replaced with hardlink. Skips hidden files/folders, symlinks/hardlinks, video previews, `uploaded_raw`. Already-linked inodes are skipped early; cross-FS duplicates are logged and skipped.
 - Hardlinks are peer names; explorer shows full size per name, real disk usage is shared. Check via `fsutil hardlink list <file>` (Win) or `ls -li`/`stat` (Linux).
   - Hardlinks need the same filesystem/volume; cross-device duplicates are skipped (logged).
 

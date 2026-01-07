@@ -126,14 +126,34 @@ class Deduplicator:
             replaced = 0
             duplicates_seen = 0
             scanned = 0
+            already_linked = 0
+            cross_fs_skipped = 0
+            hash_failed = 0
+            link_failed = 0
+            stat_failed = 0
+            inode_seen = set()
 
             files = sorted(_iter_media_files(self.media_dir, self.background_suffix, self.skip_dir))
             for path in files:
                 scanned += 1
                 try:
+                    path_stat = path.stat()
+                except FileNotFoundError:
+                    stat_failed += 1
+                    continue
+
+                inode_key = (path_stat.st_dev, path_stat.st_ino)
+                if inode_key in inode_seen:
+                    already_linked += 1
+                    logger.debug("Skip already-linked inode: %s", path)
+                    continue
+                inode_seen.add(inode_key)
+
+                try:
                     file_hash = _file_hash(path)
                 except Exception as exc:
                     logger.warning("Skip hashing %s: %s", path, exc)
+                    hash_failed += 1
                     continue
 
                 primary = hash_to_primary.get(file_hash)
@@ -144,6 +164,7 @@ class Deduplicator:
                 duplicates_seen += 1
 
                 if _same_file(primary, path):
+                    already_linked += 1
                     logger.debug("Duplicate already linked: %s -> %s", path, primary)
                     continue
 
@@ -154,7 +175,6 @@ class Deduplicator:
                 # Hardlinks require same filesystem.
                 try:
                     primary_stat = primary.stat()
-                    path_stat = path.stat()
                 except FileNotFoundError:
                     continue
                 if primary_stat.st_dev != path_stat.st_dev:
@@ -165,6 +185,7 @@ class Deduplicator:
                         primary,
                         primary_stat.st_dev,
                     )
+                    cross_fs_skipped += 1
                     continue
 
                 temp_path = path.with_suffix(path.suffix + ".dedup_tmp")
@@ -178,12 +199,21 @@ class Deduplicator:
                     logger.warning("Failed to replace %s with link to %s: %s", path, primary, exc)
                     if temp_path.exists():
                         temp_path.rename(path)
+                    link_failed += 1
 
             logger.info(
-                "Deduplication finished: scanned %s files, duplicates found %s, replaced %s duplicates.",
+                (
+                    "Deduplication finished: scanned=%s, duplicates=%s, replaced=%s, "
+                    "already_linked=%s, cross_fs_skipped=%s, hash_failed=%s, link_failed=%s, stat_failed=%s"
+                ),
                 scanned,
                 duplicates_seen,
                 replaced,
+                already_linked,
+                cross_fs_skipped,
+                hash_failed,
+                link_failed,
+                stat_failed,
             )
         finally:
             self._lock.release()
