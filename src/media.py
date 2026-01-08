@@ -167,6 +167,7 @@ class MediaDict(dict):
                 return item.file
 
     def keys_for_collections(self, collection_ids):
+        self.sync_files()
         if not collection_ids:
             return list(self.keys())
         result = []
