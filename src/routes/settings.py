@@ -77,5 +77,5 @@ async def reset_device_collections(request: Request, device_id: str = Cookie(Non
 @router.post("/quick_start")
 async def quick_start_collection(request: Request, collection: str = Form(...), device_id: str = Cookie(None)):
     device_id = get_device_id(request, device_id)
-    device_queue_manager.update_device_info(device_id, collections=[collection])
+    device_queue_manager.update_device_info(device_id, collections=[collection], force_reset_queue=True)
     return RedirectResponse(url="/", status_code=303)

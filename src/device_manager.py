@@ -226,7 +226,7 @@ class DeviceQueueManager:
             self._save_devices_info()
         return info
 
-    def update_device_info(self, device_id: str, info=None, **kwargs) -> None:
+    def update_device_info(self, device_id: str, info=None, force_reset_queue: bool = False, **kwargs) -> None:
         if device_id in self.devices_info:
             device_info = self.devices_info[device_id]
         else:
@@ -254,12 +254,12 @@ class DeviceQueueManager:
                     value = None
                 if device_info.collections != value:
                     queue_reset_needed = True
-                    device_info.collections = value
+                device_info.collections = value
                 continue
             setattr(device_info, field, value)
 
         self.devices_info[device_id] = device_info
         self._save_devices_info()
 
-        if queue_reset_needed and collections_value_set:
+        if (queue_reset_needed and collections_value_set) or force_reset_queue:
             self.reset_device_queue(device_id)

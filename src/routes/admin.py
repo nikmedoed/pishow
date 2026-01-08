@@ -112,7 +112,7 @@ async def reset_device_collections(request: Request, device_id: str):
 
 @router.post("/{device_id}/collections/quick")
 async def quick_start_device_collection(request: Request, device_id: str, collection: str = Form(...)):
-    device_queue_manager.update_device_info(device_id, collections=[collection])
+    device_queue_manager.update_device_info(device_id, collections=[collection], force_reset_queue=True)
     request.session["update_msg"] = "Quick start collection saved."
     return RedirectResponse(url="/admin", status_code=303)
 
