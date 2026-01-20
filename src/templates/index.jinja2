@@ -19,7 +19,7 @@
 {% endif %}
 
 {% if is_video %}
-    <video id="main-video" src="{{ file_url }}" controls muted loop autoplay playsinline webkit-playsinline></video>
+    <video id="main-video" src="{{ file_url }}" controls {% if not video_sound %}muted{% endif %} loop autoplay playsinline webkit-playsinline></video>
 {% elif file_url %}
     <img id="main-media" src="{{ file_url }}" alt="Main">
 {% endif %}
@@ -44,6 +44,22 @@
             var video = document.getElementById('main-video');
             if (video) {
                 enableInlineVideo(video, {iPad: true});
+            }
+        });
+    </script>
+{% endif %}
+{% if is_video and video_sound %}
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            var video = document.getElementById("main-video");
+            if (!video) {
+                return;
+            }
+            video.muted = false;
+            video.volume = 1.0;
+            var playPromise = video.play();
+            if (playPromise && typeof playPromise.catch === "function") {
+                playPromise.catch(function () {});
             }
         });
     </script>

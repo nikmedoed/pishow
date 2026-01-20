@@ -17,7 +17,8 @@ SETTINGS_LIST = {
     # 'modern_mode': 'Modern Mode',
     'sequential_mode': 'Sequential mode',
     'show_counters': 'Show counters',
-    'show_names': 'Show file names'
+    'show_names': 'Show file names',
+    'video_sound': 'Video sound (max)'
 }
 
 
@@ -29,6 +30,7 @@ class DeviceInfo:
     sequential_mode: bool = False
     show_counters: bool = False
     video_background: bool = False
+    video_sound: bool = False
     show_names: bool = False
     collections: list[str] | None = None
     user_agent: str = ""
@@ -232,6 +234,11 @@ class DeviceQueueManager:
         else:
             device_info = DeviceInfo()
 
+        previous_effective_collections = (
+            device_info.collections
+            if device_info.collections is not None
+            else self.default_collections
+        )
         update_fields = {}
         if info is not None:
             if isinstance(info, dict):
@@ -249,12 +256,18 @@ class DeviceQueueManager:
                 continue
             if field == "collections":
                 collections_value_set = True
-                value = self._normalize_collection_ids(value, allow_empty=True)
-                if value == []:
-                    value = None
-                if device_info.collections != value:
+                normalized = self._normalize_collection_ids(value, allow_empty=True)
+                if normalized == []:
+                    normalized = None
+                # Keep using defaults if nothing changed (device had defaults and posted equals defaults).
+                if device_info.collections is None and normalized == self.default_collections:
+                    normalized = None
+                new_effective_collections = (
+                    normalized if normalized is not None else self.default_collections
+                )
+                if previous_effective_collections != new_effective_collections:
                     queue_reset_needed = True
-                device_info.collections = value
+                device_info.collections = normalized
                 continue
             setattr(device_info, field, value)
 

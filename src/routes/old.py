@@ -52,6 +52,7 @@ async def get_media_page(request: Request, device_id: str = Cookie(None)):
             "refresh_time": refresh_time,
             "is_video": is_video,
             "dynamic_background": device_info.video_background,
+            "video_sound": device_info.video_sound,
             "background_file_url": background_file_url,
             "include_inline_video": include_inline_video,
             "counters_text": counters_text,

@@ -45,13 +45,6 @@ form {
     background: #e9ecef;
 }
 
-.file-label:focus {
-    border-color: #0056b3;
-    background: #fff;
-    box-shadow: 0 0 4px rgba(0, 91, 187, 0.5);
-}
-
-
 label {
     font-size: 1.5em;
     display: block;
@@ -73,6 +66,18 @@ input[type="text"] {
     margin-bottom: 20px;
 }
 
+.settings-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(72px, 120px);
+    align-items: stretch;
+    gap: 12px;
+}
+
+.settings-row .checkbox-group {
+    min-width: 0;
+    margin-bottom: 0;
+}
+
 .checkbox-group input[type="checkbox"],
 .radio-group input[type="radio"] {
     transform: scale(1.5);
@@ -83,21 +88,6 @@ input[type="text"] {
 .radio-group p {
     font-size: 1.5em;
     margin-bottom: 10px;
-}
-
-.btn {
-    font-size: 1.75em;
-    padding: 15px;
-    border: none;
-    border-radius: 8px;
-    background-color: #007BFF;
-    color: #fff;
-    cursor: pointer;
-    transition: background-color 0.3s;
-}
-
-.btn:hover {
-    background-color: #0056b3;
 }
 
 @media (max-width: 600px) {
@@ -211,6 +201,7 @@ input[type="text"] {
 }
 
 .btn {
+    background-color: #007bff;
     padding: 8px;
     border: none;
     border-radius: 4px;
@@ -219,6 +210,7 @@ input[type="text"] {
     cursor: pointer;
     text-align: center;
     text-decoration: none;
+    transition: background-color 0.2s ease, filter 0.2s ease;
 }
 
 .btn-clear {
@@ -245,7 +237,7 @@ input[type="text"] {
     transition: background 0.3s;
 }
 
-.btn-upload:hover:hover {
+.btn-upload:hover {
     background: #0056b3;
 }
 
@@ -375,6 +367,60 @@ input[type="text"] {
 .form-actions {
     display: flex;
     justify-content: flex-end;
+    gap: 10px;
+}
+
+.btn-start {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
+    background-color: #1f8f43;
+}
+
+.btn-start:hover {
+    background-color: #176a32;
+}
+
+.btn-start-tall {
+    align-self: stretch;
+    justify-self: end;
+    flex-direction: column;
+    height: auto;
+    min-height: 0;
+    justify-content: center;
+    padding: 8px 6px 10px;
+    width: 100%;
+    white-space: normal;
+    text-align: center;
+    line-height: 1.2;
+}
+
+.btn-start-tall .btn-icon-line {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 6px;
+}
+
+.btn-start-tall .btn-text,
+.btn-start-tall .btn-sub {
+    display: block;
+}
+
+.btn-start-tall .btn-sub {
+    font-size: 0.85em;
+    opacity: 0.9;
+}
+
+.btn-icon {
+    width: 20px;
+    height: 20px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
 }
 
 .btn-ghost {
@@ -627,4 +673,7 @@ input[type="text"] {
     .media-summary {
         font-size: 1.1em;
     }
+}
+.settings-row .checkbox-group label {
+    white-space: nowrap;
 }

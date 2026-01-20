@@ -91,8 +91,13 @@ tested TV restarted when attempting to display a panorama image with a resolutio
 For optimal performance, consider the following tips:
 
 - **Compress Videos:**  
-  Use [Rotato Video Compressor](https://tools.rotato.app/compress) or `ffmpeg` to re-encode videos. A recommended ffmpeg
-  command (often better than Rotato) is:
+  Use my [easy-video-compress](https://github.com/nikmedoed/easy-video-compress) tool first. It’s a small FFmpeg-based
+  compressor with a drag-and-drop GUI: drop a batch of videos, get compressed outputs in parallel, with a simple mode
+  toggle for size targeting or CRF quality.
+
+  If you prefer a browser tool, [Rotato Video Compressor](https://tools.rotato.app/compress) is a good backup.
+
+  A recommended ffmpeg command (often better than Rotato) is:
     ```bash
     ffmpeg -i input.mp4 -c:v libx264 -preset slow -crf 30 -pix_fmt yuv420p -movflags faststart -c:a aac -b:a 128k output.mp4
     ```

@@ -21,14 +21,27 @@
         <label for="photo_time">Photo Display Time (sec):</label>
         <input type="number" id="photo_time" name="photo_time" min="5" value="{{ settings.photo_time }}" required>
 
-        <div class="checkbox-group">
-            {% for name, label in settings_checks.items() %}
-                <label>
-                    <input type="checkbox" name="{{ name }}"
-                           {% if settings[name] %}checked{% endif %}>
-                    {{ label }}
-                </label>
-            {% endfor %}
+        <div class="settings-row">
+            <div class="checkbox-group">
+                {% for name, label in settings_checks.items() %}
+                    <label>
+                        <input type="checkbox" name="{{ name }}"
+                               {% if settings[name] %}checked{% endif %}>
+                        {{ label }}
+                    </label>
+                {% endfor %}
+            </div>
+            <a href="/" class="btn btn-start btn-start-tall">
+                <span class="btn-icon-line" aria-hidden="true">
+                    <svg class="btn-icon" viewBox="0 0 24 24">
+                        <rect x="3" y="4" width="18" height="12" rx="2" ry="2"></rect>
+                        <path d="M8 20h8"></path>
+                        <path d="M12 16v4"></path>
+                    </svg>
+                </span>
+                <span class="btn-text">Start Slideshow</span>
+                <span class="btn-sub">No save</span>
+            </a>
         </div>
 
         <div class="radio-group">
@@ -72,6 +85,14 @@
         {{ render_collections(collections, selected_collections, show_quick_start=True, quick_action=quick_start_action) }}
 
         <div class="form-actions">
+            <a href="/" class="btn btn-start">
+                <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+                    <rect x="3" y="4" width="18" height="12" rx="2" ry="2"></rect>
+                    <path d="M8 20h8"></path>
+                    <path d="M12 16v4"></path>
+                </svg>
+                Start Slideshow (no save)
+            </a>
             <button type="submit" class="btn">Save Settings</button>
         </div>
     </form>
