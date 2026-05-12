@@ -1,11 +1,18 @@
 import logging
 from pathlib import Path
-from threading import Thread
+from threading import Event, Thread
 
 from watchdog.events import FileSystemEventHandler
 from watchdog.observers import Observer
 
-from src.settings import CONVERT_LOCK_FILE, media_handler, MEDIA_DIR, UPLOADED_RAW_DIR
+from src.settings import (
+    CONVERT_LOCK_FILE,
+    MEDIA_RETRY_INTERVAL_SECONDS,
+    media_handler,
+    MEDIA_DIR,
+    UPLOADED_RAW_DIR,
+    ensure_media_directories,
+)
 
 logger = logging.getLogger("Watchdog")
 
@@ -32,14 +39,64 @@ class MediaFolderHandler(FileSystemEventHandler):
         self.media_dict.sync_files()
 
 
-event_handler = MediaFolderHandler(media_handler)
-observer = Observer()
-observer.schedule(event_handler, str(MEDIA_DIR), recursive=True)
+class MediaObserver:
+    def __init__(self):
+        self._stop_event = Event()
+        self._thread = Thread(target=self._run, daemon=True)
+        self._observer = None
+
+    @staticmethod
+    def _stop_observer(observer):
+        try:
+            observer.stop()
+        except RuntimeError:
+            pass
+        observer.join()
+
+    def _run(self):
+        while not self._stop_event.is_set():
+            if not ensure_media_directories():
+                self._stop_event.wait(MEDIA_RETRY_INTERVAL_SECONDS)
+                continue
+
+            observer = Observer()
+            event_handler = MediaFolderHandler(media_handler)
+            observer_started = False
+            try:
+                media_handler.sync_files()
+                observer.schedule(event_handler, str(MEDIA_DIR), recursive=True)
+                observer.start()
+                observer_started = True
+            except OSError as exc:
+                logger.warning("Media observer waiting for %s: %s", MEDIA_DIR, exc)
+                if observer_started:
+                    self._stop_observer(observer)
+                self._stop_event.wait(MEDIA_RETRY_INTERVAL_SECONDS)
+                continue
+
+            self._observer = observer
+            logger.info("Media observer started for %s", MEDIA_DIR)
+            while not self._stop_event.wait(MEDIA_RETRY_INTERVAL_SECONDS):
+                if not ensure_media_directories() or not observer.is_alive():
+                    logger.warning("Media observer paused until %s is available", MEDIA_DIR)
+                    self._stop_observer(observer)
+                    break
+            self._observer = None
+
+    def start(self):
+        if not self._thread.is_alive():
+            self._thread.start()
+
+    def stop(self):
+        self._stop_event.set()
+        observer = self._observer
+        if observer is not None:
+            self._stop_observer(observer)
+            self._observer = None
+
+    def join(self):
+        if self._thread.is_alive():
+            self._thread.join(timeout=MEDIA_RETRY_INTERVAL_SECONDS + 1)
 
 
-def run_observer():
-    observer.start()
-    observer.join()
-
-
-observer_thread = Thread(target=run_observer, daemon=True)
+media_observer = MediaObserver()

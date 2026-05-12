@@ -41,21 +41,28 @@ class ConversionQueue:
         preserved = self._existing_items()
         known_paths = {item.relative_path for item in preserved}
         new_items: List[QueueItem] = []
-        for file_path in sorted(UPLOADED_RAW_DIR.rglob("*")):
-            if not file_path.is_file():
-                continue
-            relative_path = file_path.relative_to(UPLOADED_RAW_DIR)
-            parts = relative_path.parts
-            if parts and parts[0] == "failed":
-                continue
-            suffix = file_path.suffix.lower()
-            if suffix == ".txt" or suffix not in ALL_EXTENSIONS:
-                continue
-            relative = relative_path.as_posix()
-            if relative in known_paths:
-                continue
-            file_type = "video" if suffix in VIDEO_SUFFIXES else "image"
-            new_items.append(QueueItem(relative_path=relative, file_type=file_type))
+        try:
+            if not UPLOADED_RAW_DIR.is_dir():
+                raise FileNotFoundError(UPLOADED_RAW_DIR)
+            for file_path in sorted(UPLOADED_RAW_DIR.rglob("*")):
+                if not file_path.is_file():
+                    continue
+                relative_path = file_path.relative_to(UPLOADED_RAW_DIR)
+                parts = relative_path.parts
+                if parts and parts[0] == "failed":
+                    continue
+                suffix = file_path.suffix.lower()
+                if suffix == ".txt" or suffix not in ALL_EXTENSIONS:
+                    continue
+                relative = relative_path.as_posix()
+                if relative in known_paths:
+                    continue
+                file_type = "video" if suffix in VIDEO_SUFFIXES else "image"
+                new_items.append(QueueItem(relative_path=relative, file_type=file_type))
+        except OSError as exc:
+            logger.warning("Raw upload directory %s is not available yet: %s", UPLOADED_RAW_DIR, exc)
+            self.items = preserved
+            return 0
         new_items.sort(key=lambda item: item.relative_path)
         if new_items:
             logger.debug("Queued %s new files", len(new_items))

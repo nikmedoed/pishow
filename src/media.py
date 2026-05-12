@@ -61,6 +61,7 @@ class MediaDict(dict):
         self.collections_index = {}
         self.synced = False
         self.need_resync = False
+        self._unavailable_logged = False
         self.sync_files()
 
     def sync_files(self):
@@ -73,43 +74,53 @@ class MediaDict(dict):
         collections_index = {}
         found_rel_paths = set()
 
-        for file in self.media_dir.rglob("*"):
-            if (self.background_suffix is not None and str(file).endswith(self.background_suffix)
-                    or self.uploaded_media_raw is not None and file.is_relative_to(self.uploaded_media_raw)):
-                continue
-            # Skip hidden files and directories (starting with dot)
-            rel_parts = file.relative_to(self.media_dir).parts
-            if any(part.startswith(".") for part in rel_parts):
-                continue
-            mime_type, _ = mimetypes.guess_type(file)
-            if not (mime_type and (mime_type.startswith("image/") or mime_type.startswith("video/"))):
-                continue
+        try:
+            if not self.media_dir.is_dir():
+                raise FileNotFoundError(self.media_dir)
+            for file in self.media_dir.rglob("*"):
+                if (self.background_suffix is not None and str(file).endswith(self.background_suffix)
+                        or self.uploaded_media_raw is not None and file.is_relative_to(self.uploaded_media_raw)):
+                    continue
+                # Skip hidden files and directories (starting with dot)
+                rel_parts = file.relative_to(self.media_dir).parts
+                if any(part.startswith(".") for part in rel_parts):
+                    continue
+                mime_type, _ = mimetypes.guess_type(file)
+                if not (mime_type and (mime_type.startswith("image/") or mime_type.startswith("video/"))):
+                    continue
 
-            rel_path = str(file.relative_to(self.media_dir)).replace("\\", "/")
-            found_rel_paths.add(rel_path)
-            key = hashlib.md5(rel_path.encode("utf-8")).hexdigest()
-            collection_id = collection_id_from_relative_path(rel_path)
-            url = quote(rel_path)
+                rel_path = str(file.relative_to(self.media_dir)).replace("\\", "/")
+                found_rel_paths.add(rel_path)
+                key = hashlib.md5(rel_path.encode("utf-8")).hexdigest()
+                collection_id = collection_id_from_relative_path(rel_path)
+                url = quote(rel_path)
 
-            found_keys.add(key)
-            if key not in self:
-                if mime_type.startswith("image/"):
-                    self[key] = MediaFile(relative_path=url, file=rel_path, collection_id=collection_id)
+                found_keys.add(key)
+                if key not in self:
+                    if mime_type.startswith("image/"):
+                        self[key] = MediaFile(relative_path=url, file=rel_path, collection_id=collection_id)
+                    else:
+                        duration = self._get_cached_duration(file, rel_path)
+                        self[key] = MediaFile(
+                            relative_path=url,
+                            file=rel_path,
+                            collection_id=collection_id,
+                            is_video=True,
+                            duration=duration
+                        )
+                    new_keys.append(key)
                 else:
-                    duration = self._get_cached_duration(file, rel_path)
-                    self[key] = MediaFile(
-                        relative_path=url,
-                        file=rel_path,
-                        collection_id=collection_id,
-                        is_video=True,
-                        duration=duration
-                    )
-                new_keys.append(key)
-            else:
-                existing = super().get(key)
-                if existing and existing.collection_id != collection_id:
-                    existing.collection_id = collection_id
-            collections_index.setdefault(collection_id, []).append(key)
+                    existing = super().get(key)
+                    if existing and existing.collection_id != collection_id:
+                        existing.collection_id = collection_id
+                collections_index.setdefault(collection_id, []).append(key)
+        except OSError as exc:
+            self.synced = False
+            self.need_resync = True
+            if not self._unavailable_logged:
+                logger.warning("Media directory %s is not available yet: %s", self.media_dir, exc)
+                self._unavailable_logged = True
+            return []
 
         for key in list(self.keys()):
             if key not in found_keys:
@@ -127,6 +138,9 @@ class MediaDict(dict):
         self.video_keys = tuple(key for key, media in self.items() if media.is_video)
         self.synced = True
         self.need_resync = False
+        if self._unavailable_logged:
+            logger.info("Media directory %s is available", self.media_dir)
+            self._unavailable_logged = False
         logger.debug(f"New files {len(new_keys)} total {len(self)}")
         return new_keys
 

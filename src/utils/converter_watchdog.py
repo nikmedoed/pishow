@@ -9,7 +9,9 @@ from watchdog.observers import Observer
 from src.settings import (
     CONVERTER_STARTUP_DELAY_SECONDS,
     CONVERTER_THROTTLE_SECONDS,
+    MEDIA_RETRY_INTERVAL_SECONDS,
     UPLOADED_RAW_DIR,
+    ensure_media_directories,
 )
 from src.utils.converter_control import enqueue_new_files, is_conversion_running, start_conversion
 from src.utils.converter_queue import ConversionQueue
@@ -91,8 +93,7 @@ class ConversionWatchdog:
         startup_delay_seconds: int = CONVERTER_STARTUP_DELAY_SECONDS,
     ):
         self.handler = _ConversionHandler(throttle_seconds)
-        self.observer = Observer()
-        self.observer.schedule(self.handler, str(UPLOADED_RAW_DIR), recursive=True)
+        self.observer: Optional[Observer] = None
         self.startup_delay_seconds = max(startup_delay_seconds, 0)
         self._state_lock = Lock()
         self._start_timer: Optional[Timer] = None
@@ -116,9 +117,39 @@ class ConversionWatchdog:
             if self._started:
                 logger.debug("Conversion watchdog already started")
                 return
-            self._started = True
 
-        self.observer.start()
+        if not ensure_media_directories():
+            self.start(auto_start=auto_start, delay_seconds=MEDIA_RETRY_INTERVAL_SECONDS)
+            return
+
+        observer = Observer()
+        observer_started = False
+        try:
+            observer.schedule(self.handler, str(UPLOADED_RAW_DIR), recursive=True)
+            observer.start()
+            observer_started = True
+        except OSError as exc:
+            logger.warning("Conversion watchdog waiting for %s: %s", UPLOADED_RAW_DIR, exc)
+            if observer_started:
+                observer.stop()
+                observer.join()
+            self.start(auto_start=auto_start, delay_seconds=MEDIA_RETRY_INTERVAL_SECONDS)
+            return
+
+        with self._state_lock:
+            if self._stopped:
+                logger.debug("Skipping conversion watchdog start because it was stopped")
+                observer.stop()
+                observer.join()
+                return
+            if self._started:
+                logger.debug("Conversion watchdog already started")
+                observer.stop()
+                observer.join()
+                return
+            self._started = True
+            self.observer = observer
+
         logger.info(
             "Conversion watchdog started with throttle %ss",
             self.handler.throttle_seconds,
@@ -149,10 +180,16 @@ class ConversionWatchdog:
                 timer = Timer(start_delay, _run_start)
                 timer.daemon = True
                 self._start_timer = timer
-                logger.info(
-                    "Conversion watchdog startup deferred for %ss",
-                    start_delay,
-                )
+                if delay_seconds is None:
+                    logger.info(
+                        "Conversion watchdog startup deferred for %ss",
+                        start_delay,
+                    )
+                else:
+                    logger.debug(
+                        "Conversion watchdog retry deferred for %ss",
+                        start_delay,
+                    )
                 timer.start()
                 return
 
@@ -174,7 +211,8 @@ class ConversionWatchdog:
         if timer:
             timer.cancel()
         self.handler.cancel()
-        if started:
-            self.observer.stop()
-            self.observer.join()
+        observer = self.observer
+        if started and observer is not None:
+            observer.stop()
+            observer.join()
         logger.info("Conversion watchdog stopped")

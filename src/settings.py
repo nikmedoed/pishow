@@ -1,4 +1,5 @@
 import os
+import logging
 from pathlib import Path
 from typing import Optional
 
@@ -11,14 +12,42 @@ from src.utils.media_collections import COLLECTION_ROOT_ID, collection_id_from_d
 
 load_dotenv()
 
+logger = logging.getLogger(__name__)
+
 MEDIA_PATH = '/media'
 VIDEO_BACKGROUND_SUFFIX = ".background.jpg"
-MEDIA_DIR = Path(os.getenv("MEDIA_DIR", "gallery"))
+_media_dir_env = os.getenv("MEDIA_DIR")
+MEDIA_DIR = Path(_media_dir_env or "gallery")
+MEDIA_DIR_CONFIGURED = bool(_media_dir_env)
 
 UPLOADED_RAW_DIR = MEDIA_DIR / "uploaded_raw"
 UPLOADED_DIR = MEDIA_DIR / "uploaded"
-UPLOADED_RAW_DIR.mkdir(parents=True, exist_ok=True)
-UPLOADED_DIR.mkdir(parents=True, exist_ok=True)
+MEDIA_RETRY_INTERVAL_SECONDS = int(os.getenv("MEDIA_RETRY_INTERVAL_SECONDS", "5"))
+_media_unavailable_logged = False
+
+
+def ensure_media_directories() -> bool:
+    global _media_unavailable_logged
+    try:
+        if MEDIA_DIR_CONFIGURED:
+            if not MEDIA_DIR.is_dir():
+                raise FileNotFoundError(MEDIA_DIR)
+        else:
+            MEDIA_DIR.mkdir(parents=True, exist_ok=True)
+        UPLOADED_RAW_DIR.mkdir(exist_ok=True)
+        UPLOADED_DIR.mkdir(exist_ok=True)
+    except OSError as exc:
+        if not _media_unavailable_logged:
+            logger.warning("Media directory %s is not available yet: %s", MEDIA_DIR, exc)
+            _media_unavailable_logged = True
+        return False
+    if _media_unavailable_logged:
+        logger.info("Media directory %s is available", MEDIA_DIR)
+        _media_unavailable_logged = False
+    return True
+
+
+ensure_media_directories()
 
 STORAGE_DIR = Path(__file__).resolve().parent.parent / "storage"
 STORAGE_DIR.mkdir(exist_ok=True)
